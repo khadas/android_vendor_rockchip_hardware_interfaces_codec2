@@ -457,6 +457,22 @@ void C2RKComponent::finish(
         return;
     }
 
+    bool isFlushPending = false;
+    {
+        Mutexed<WorkQueue>::Locked queue(mWorkQueue);
+        isFlushPending = queue->popPendingFlush();
+    }
+
+    if (isFlushPending) {
+        c2_trace("processing pending flush");
+        c2_status_t err = onFlush_sm();
+        if (err != C2_OK) {
+            c2_err("flush err: %d", err);
+            // TODO: error
+        }
+        return;
+    }
+
     fillWork(work);
     std::shared_ptr<C2Component::Listener> listener = mExecState.lock()->mListener;
     listener->onWorkDone_nb(shared_from_this(), vec(work));
