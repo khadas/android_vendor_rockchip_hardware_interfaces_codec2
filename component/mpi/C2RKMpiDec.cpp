@@ -671,7 +671,9 @@ c2_status_t C2RKMpiDec::initDecoder() {
         IntfImpl::Lock lock = mIntf->lock();
         mWidth = mIntf->getSize_l()->width;
         mHeight = mIntf->getSize_l()->height;
+        mPrimaries = (uint32_t)mIntf->getDefaultColorAspects_l()->primaries;
         mTransfer = (uint32_t)mIntf->getDefaultColorAspects_l()->transfer;
+        mRange = (uint32_t)mIntf->getDefaultColorAspects_l()->range;
         if (mIntf->getLowLatency_l() != nullptr) {
             mLowLatencyMode = (mIntf->getLowLatency_l()->value > 0) ? true : false ;
         }
@@ -1440,6 +1442,24 @@ c2_status_t C2RKMpiDec::ensureDecoderState(
             break;
         case ColorTransfer::kColorTransferHLG:
             usage |= ((GRALLOC_NV12_10_HDR_HLG << 24) & GRALLOC_COLOR_SPACE_MASK);  // hdr-hlg
+            break;
+    }
+
+    switch (mPrimaries) {
+        case C2Color::PRIMARIES_BT601_525:
+            usage |= MALI_GRALLOC_USAGE_YUV_COLOR_SPACE_BT601;
+            break;
+        case C2Color::PRIMARIES_BT709:
+            usage |= MALI_GRALLOC_USAGE_YUV_COLOR_SPACE_BT709;
+            break;
+    }
+
+    switch (mRange) {
+        case C2Color::RANGE_FULL:
+            usage |= MALI_GRALLOC_USAGE_RANGE_WIDE;
+            break;
+        case C2Color::RANGE_LIMITED:
+            usage |= MALI_GRALLOC_USAGE_RANGE_NARROW;
             break;
     }
 
