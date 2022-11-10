@@ -1667,7 +1667,6 @@ c2_status_t C2RKMpiEnc::initEncoder() {
         IntfImpl::Lock lock = mIntf->lock();
         mSize = mIntf->getSize_l();
         mBitrate = mIntf->getBitrate_l();
-        mRequestSync = mIntf->getRequestSync_l();
     }
 
     /* default stride */
@@ -2121,18 +2120,15 @@ c2_status_t C2RKMpiEnc::handleRequestSyncFrame() {
         requestSync = mIntf->getRequestSync_l();
         lock.unlock();
 
-        if (requestSync != mRequestSync) {
-            // we can handle IDR immediately
-            if (requestSync->value) {
-                c2_trace("got sync request");
-                // unset request
-                C2StreamRequestSyncFrameTuning::output clearSync(0u, C2_FALSE);
-                std::vector<std::unique_ptr<C2SettingResult>> failures;
-                mIntf->config({ &clearSync }, C2_MAY_BLOCK, &failures);
-                // force set IDR frame
-                mMppMpi->control(mMppCtx, MPP_ENC_SET_IDR_FRAME, nullptr);
-            }
-            mRequestSync = requestSync;
+        // we can handle IDR immediately
+        if (requestSync->value) {
+            c2_info("got sync request");
+            // unset request
+            C2StreamRequestSyncFrameTuning::output clearSync(0u, C2_FALSE);
+            std::vector<std::unique_ptr<C2SettingResult>> failures;
+            mIntf->config({ &clearSync }, C2_MAY_BLOCK, &failures);
+            // force set IDR frame
+            mMppMpi->control(mMppCtx, MPP_ENC_SET_IDR_FRAME, nullptr);
         }
     }
 

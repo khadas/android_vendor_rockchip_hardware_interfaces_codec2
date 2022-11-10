@@ -93,7 +93,6 @@ private:
     // (TODO: keep this in intf but make them internal only)
     std::shared_ptr<C2StreamPictureSizeInfo::input> mSize;
     std::shared_ptr<C2StreamBitrateInfo::output> mBitrate;
-    std::shared_ptr<C2StreamRequestSyncFrameTuning::output> mRequestSync;
 
     void fillEmptyWork(const std::unique_ptr<C2Work> &work);
     void finishWork(
