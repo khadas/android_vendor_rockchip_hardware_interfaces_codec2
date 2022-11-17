@@ -488,6 +488,10 @@ public:
         return mLowLatency;
     }
 
+    std::shared_ptr<C2StreamProfileLevelInfo::input> getProfileLevel_l() {
+        return mProfileLevel;
+    }
+
 private:
     std::shared_ptr<C2StreamPictureSizeInfo::output> mSize;
     std::shared_ptr<C2StreamMaxPictureSizeTuning::output> mMaxSize;
@@ -671,6 +675,10 @@ c2_status_t C2RKMpiDec::initDecoder() {
         if (mIntf->getLowLatency_l() != nullptr) {
             mLowLatencyMode = (mIntf->getLowLatency_l()->value > 0) ? true : false ;
         }
+        if (mIntf->getProfileLevel_l() != nullptr) {
+            mProfile  = (uint32_t)mIntf->getProfileLevel_l()->profile;
+            c2_info("mProfile %d", mProfile);
+        }
     }
 
     c2_info("init: w %d h %d coding %d", mWidth, mHeight, mCodingType);
@@ -724,7 +732,9 @@ c2_status_t C2RKMpiDec::initDecoder() {
 
         /* user can't process fbc output on bufferMode */
         /* SMPTEST2084 = 6*/
-        if ((mTransfer == 6) || (!mBufferMode && (mWidth * mHeight > 1920 * 1080))) {
+        c2_info("mTransfer %d", mTransfer);
+        if ((mTransfer == 6) || (!mBufferMode && (mWidth * mHeight > 1920 * 1080))
+            || (mProfile == PROFILE_AVC_HIGH_10 || mProfile == PROFILE_HEVC_MAIN_10)) {
             mFbcCfg.mode = C2RKFbcDef::getFbcOutputMode(mCodingType);
             if (mFbcCfg.mode) {
                 c2_info("use mpp fbc output mode");

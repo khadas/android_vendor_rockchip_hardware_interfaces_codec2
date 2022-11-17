@@ -111,6 +111,7 @@ private:
     FILE *mOutFile;
     FILE *mInFile;
 
+    uint32_t mProfile;
     struct FbcConfig {
         uint32_t mode;
         // fbc decode output padding
