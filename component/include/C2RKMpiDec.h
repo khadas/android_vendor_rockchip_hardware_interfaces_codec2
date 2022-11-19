@@ -141,6 +141,8 @@ private:
                     coeffs == o.coeffs && fullRange == o.fullRange;
         }
     } mBitstreamColorAspects;
+
+    bool checkPreferFbcOutput(const std::unique_ptr<C2Work> &work);
     //check bufferqueue from GrallocBufferSource or not
     bool checkIsGBSource(const std::shared_ptr<C2BlockPool> &pool);
     void fillEmptyWork(const std::unique_ptr<C2Work> &work);
@@ -150,7 +152,7 @@ private:
         const std::shared_ptr<C2BlockPool> &pool,
         const std::unique_ptr<C2Work> &work);
 
-    c2_status_t initDecoder(const std::shared_ptr<C2BlockPool> &pool);
+    c2_status_t initDecoder(const std::unique_ptr<C2Work> &work);
     void getVuiParams(MppFrame frame);
     c2_status_t sendpacket(
             uint8_t *data, size_t size, uint64_t pts, uint32_t flags);

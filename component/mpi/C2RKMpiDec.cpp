@@ -34,6 +34,7 @@
 #include "C2RKFbcDef.h"
 #include "C2RKGrallocDef.h"
 #include "C2RKColorAspects.h"
+#include "C2RKNalParser.h"
 #include "C2RKVersion.h"
 #include "C2RKEnv.h"
 
@@ -639,7 +640,7 @@ c2_status_t C2RKMpiDec::onFlush_sm() {
     return ret;
 }
 
-c2_status_t C2RKMpiDec::initDecoder(const std::shared_ptr<C2BlockPool> &pool) {
+c2_status_t C2RKMpiDec::initDecoder(const std::unique_ptr<C2Work> &work) {
     MPP_RET err = MPP_OK;
 
     c2_log_func_enter();
@@ -655,8 +656,7 @@ c2_status_t C2RKMpiDec::initDecoder(const std::shared_ptr<C2BlockPool> &pool) {
             mLowLatencyMode = (mIntf->getLowLatency_l()->value > 0) ? true : false ;
         }
         if (mIntf->getProfileLevel_l() != nullptr) {
-            mProfile  = (uint32_t)mIntf->getProfileLevel_l()->profile;
-            c2_info("mProfile %d", mProfile);
+            mProfile = (uint32_t)mIntf->getProfileLevel_l()->profile;
         }
     }
 
@@ -709,13 +709,7 @@ c2_status_t C2RKMpiDec::initDecoder(const std::shared_ptr<C2BlockPool> &pool) {
         MppFrame frame  = nullptr;
         uint32_t mppFmt = mColorFormat;
 
-        mGraphicBufferSource = checkIsGBSource(pool);
-        /* user can't process fbc output on bufferMode */
-        /* SMPTEST2084 = 6*/
-        c2_info("mTransfer %d", mTransfer);
-        if (((mTransfer == 6) || (!mBufferMode && (mWidth * mHeight > 1920 * 1080))
-            || (mProfile == PROFILE_AVC_HIGH_10 || mProfile == PROFILE_HEVC_MAIN_10))
-            && !mGraphicBufferSource) {
+        if (checkPreferFbcOutput(work)) {
             mFbcCfg.mode = C2RKFbcDef::getFbcOutputMode(mCodingType);
             if (mFbcCfg.mode) {
                 c2_info("use mpp fbc output mode");
@@ -793,6 +787,50 @@ error:
     }
 
     return C2_CORRUPTED;
+}
+
+bool C2RKMpiDec::checkPreferFbcOutput(const std::unique_ptr<C2Work> &work) {
+    if (mGraphicBufferSource) {
+        c2_info("get graphicBufferSource in, perfer non-fbc mode");
+        return false;
+    }
+
+    if (!mBufferMode && (mWidth * mHeight > 2304 * 1080)) {
+        return true;
+    }
+
+    /* SMPTEST2084 = 6 */
+    if (mTransfer == 6) {
+        c2_info("get transfer SMPTEST2084, prefer fbc output mode");
+        return true;
+    }
+
+    if (mProfile == PROFILE_AVC_HIGH_10 || mProfile == PROFILE_HEVC_MAIN_10) {
+        c2_info("get 10bit profile, prefer fbc output mode");
+        return true;
+    }
+
+    // kodi/photos/files does not transmit profile level(10bit etc) to C2, so
+    // get bitDepth info from spspps in this case.
+    if (work->input.flags & C2FrameData::FLAG_CODEC_CONFIG) {
+        uint8_t *inData = nullptr;
+        size_t inSize = 0u;
+        C2ReadView rView = mDummyReadView;
+        if (!work->input.buffers.empty()) {
+            rView = work->input.buffers[0]->data().linearBlocks().front().map().get();
+            inData = const_cast<uint8_t *>(rView.data());
+            inSize = rView.capacity();
+            if (!rView.error()) {
+                int32_t depth = C2RKNalParser::getBitDepth(inData, inSize, mCodingType);
+                if (depth == 10) {
+                    c2_info("get 10bit profile tag from spspps, prefer fbc output mode");
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
 }
 
 bool C2RKMpiDec::checkIsGBSource(const std::shared_ptr<C2BlockPool> &pool) {
@@ -964,7 +1002,8 @@ void C2RKMpiDec::process(
 
     // Initialize decoder if not already initialized
     if (!mStarted) {
-        err = initDecoder(pool);
+        mGraphicBufferSource = checkIsGBSource(pool);
+        err = initDecoder(work);
         if (err != C2_OK) {
             work->result = C2_BAD_VALUE;
             c2_info("failed to initialize, signalled Error");
@@ -1454,8 +1493,8 @@ c2_status_t C2RKMpiDec::ensureDecoderState(
     // correctly, so use actual dimention when fetch block, make sure that
     // the output buffer carries all info needed.
     // note: private grallc flag only support gralloc 4.0
-    if (mGrallocVersion == 4 && format == HAL_PIXEL_FORMAT_YCrCb_NV12 && mWidth != mHorStride
-        && !mGraphicBufferSource) {
+    if (mGrallocVersion == 4 && format == HAL_PIXEL_FORMAT_YCrCb_NV12
+        && mWidth != mHorStride && !mGraphicBufferSource) {
         blockW = mWidth;
         usage = C2RKMediaUtils::getStrideUsage(mWidth, mHorStride);
     }
