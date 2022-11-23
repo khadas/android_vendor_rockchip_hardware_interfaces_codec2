@@ -27,6 +27,9 @@
 
 using namespace android;
 
+std::atomic<int32_t> sDecConcurrentInstances = 0;
+std::atomic<int32_t> sEncConcurrentInstances = 0;
+
 bool C2RKMediaUtils::getCodingTypeFromComponentName(
         C2String componentName, MppCodingType *codingType) {
     for (int i = 0; i < C2_RK_ARRAY_ELEMS(kComponentMapEntry); ++i) {

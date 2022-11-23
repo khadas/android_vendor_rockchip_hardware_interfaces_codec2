@@ -25,6 +25,12 @@
 
 using namespace android;
 
+extern std::atomic<int32_t> sDecConcurrentInstances;
+extern std::atomic<int32_t> sEncConcurrentInstances;
+
+#define kMaxDecConcurrentInstances     32
+#define kMaxEncConcurrentInstances     32
+
 #define C2_SAFE_FREE(p) { if (p) {free(p); (p)=NULL;} }
 #define C2_ALIGN(x, a)         (((x)+(a)-1)&~((a)-1))
 #define C2_ALIGN_ODD(x, a)     (((x)+(a)-1)&~((a)-1) | a)

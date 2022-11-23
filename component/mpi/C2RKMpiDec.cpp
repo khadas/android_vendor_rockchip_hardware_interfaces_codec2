@@ -552,11 +552,20 @@ C2RKMpiDec::C2RKMpiDec(
 
 C2RKMpiDec::~C2RKMpiDec() {
     c2_log_func_enter();
+    if (sDecConcurrentInstances.load() > 0) {
+        sDecConcurrentInstances.fetch_sub(1, std::memory_order_relaxed);
+    }
     onRelease();
 }
 
 c2_status_t C2RKMpiDec::onInit() {
     c2_log_func_enter();
+    if (sDecConcurrentInstances.load() >= kMaxDecConcurrentInstances) {
+        c2_warn("Reject to Initialize() due to too many dec instances: %d",
+                sDecConcurrentInstances.load());
+        return C2_NO_MEMORY;
+    }
+    sDecConcurrentInstances.fetch_add(1, std::memory_order_relaxed);
     return C2_OK;
 }
 

@@ -944,11 +944,20 @@ C2RKMpiEnc::C2RKMpiEnc(
 
 C2RKMpiEnc::~C2RKMpiEnc() {
     c2_log_func_enter();
+    if (sEncConcurrentInstances.load() > 0) {
+        sEncConcurrentInstances.fetch_sub(1, std::memory_order_relaxed);
+    }
     onRelease();
 }
 
 c2_status_t C2RKMpiEnc::onInit() {
     c2_log_func_enter();
+    if (sEncConcurrentInstances.load() >= kMaxEncConcurrentInstances) {
+        c2_warn("Reject to Initialize() due to too many enc instances: %d",
+                sEncConcurrentInstances.load());
+        return C2_NO_MEMORY;
+    }
+    sEncConcurrentInstances.fetch_add(1, std::memory_order_relaxed);
     return C2_OK;
 }
 
