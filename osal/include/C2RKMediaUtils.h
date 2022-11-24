@@ -91,6 +91,7 @@ public:
     static bool checkHWSupport(MppCtxType type, MppCodingType codingType);
     static int32_t colorFormatMpiToAndroid(uint32_t format, bool fbcMode);
     static uint64_t getStrideUsage(int32_t width, int32_t stride);
+    static uint64_t getHStrideUsage(int32_t height, int32_t hstride);
     static uint32_t calculateOutputDelay(int32_t width, int32_t height, MppCodingType type, int32_t level);
     static bool isP010Allowed();
     static void convert10BitNV12ToP010(

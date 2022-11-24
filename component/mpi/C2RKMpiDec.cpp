@@ -40,6 +40,9 @@
 #include "C2RKEnv.h"
 #include "C2VdecExtendFeature.h"
 
+#include "C2RKExtendParam.h"
+#include "C2RKMlvecLegacy.h"
+
 namespace android {
 
 /* max support video resolution */
@@ -47,6 +50,11 @@ constexpr uint32_t kMaxVideoWidth = 8192;
 constexpr uint32_t kMaxVideoHeight = 4320;
 
 constexpr size_t kMinInputBufferSize = 2 * 1024 * 1024;
+
+struct MlvecParams {
+    std::shared_ptr<C2DriverVersion::output> driverInfo;
+    std::shared_ptr<C2LowLatencyMode::output> lowLatencyMode;
+};
 
 class C2RKMpiDec::IntfImpl : public C2RKInterface<void>::BaseParams {
 public:
@@ -57,6 +65,8 @@ public:
             C2Component::domain_t domain,
             C2String mediaType)
         : C2RKInterface<void>::BaseParams(helper, name, kind, domain, mediaType) {
+        mMlvecParams = std::make_shared<MlvecParams>();
+
         addParameter(
                 DefineParam(mActualOutputDelay, C2_PARAMKEY_OUTPUT_DELAY)
                 .withDefault(new C2PortActualDelayTuning::output(C2_DEFAULT_OUTPUT_DELAY))
@@ -360,6 +370,21 @@ public:
                     .withFields({C2F(mLowLatency, value)})
                     .withSetter(Setter<decltype(*mLowLatency)>::NonStrictValueWithNoDeps)
                     .build());
+
+            /* extend parameter definition */
+            addParameter(
+                    DefineParam(mMlvecParams->driverInfo, C2_PARAMKEY_MLVEC_DEC_DRI_VERSION)
+                    .withConstValue(new C2DriverVersion::output(MLVEC_DRIVER_VERSION))
+                    .build());
+
+            addParameter(
+                    DefineParam(mMlvecParams->lowLatencyMode, C2_PARAMKEY_MLVEC_DEC_LOW_LATENCY_MODE)
+                    .withDefault(new C2LowLatencyMode::output(0))
+                    .withFields({
+                        C2F(mMlvecParams->lowLatencyMode, enable).any(),
+                    })
+                    .withSetter(MLowLatenctyModeSetter)
+                    .build());
         }
     }
 
@@ -476,6 +501,13 @@ public:
         return C2R::Ok();
     }
 
+    static C2R MLowLatenctyModeSetter(
+        bool mayBlock, C2P<C2LowLatencyMode::output> &me) {
+        (void)mayBlock;
+        (void)me;
+        return C2R::Ok();
+    }
+
     std::shared_ptr<C2StreamPictureSizeInfo::output> getSize_l() {
         return mSize;
     }
@@ -500,6 +532,10 @@ public:
         return mPixelFormat;
     }
 
+    std::shared_ptr<MlvecParams> getMlvecParams_l() {
+        return mMlvecParams;
+    }
+
 private:
     std::shared_ptr<C2StreamPictureSizeInfo::output> mSize;
     std::shared_ptr<C2StreamMaxPictureSizeTuning::output> mMaxSize;
@@ -512,6 +548,7 @@ private:
     std::shared_ptr<C2StreamColorAspectsInfo::input> mCodedColorAspects;
     std::shared_ptr<C2StreamColorAspectsInfo::output> mColorAspects;
     std::shared_ptr<C2GlobalLowLatencyModeTuning> mLowLatency;
+    std::shared_ptr<MlvecParams> mMlvecParams;
 };
 
 C2RKMpiDec::C2RKMpiDec(
@@ -669,6 +706,10 @@ c2_status_t C2RKMpiDec::initDecoder(const std::unique_ptr<C2Work> &work) {
         if (mIntf->getLowLatency_l() != nullptr) {
             mLowLatencyMode = (mIntf->getLowLatency_l()->value > 0) ? true : false ;
         }
+        if (!mLowLatencyMode && mIntf->getMlvecParams_l()->lowLatencyMode != nullptr) {
+            mLowLatencyMode = (mIntf->getMlvecParams_l()->lowLatencyMode->enable != 0);
+        }
+
         if (mIntf->getProfileLevel_l() != nullptr) {
             mProfile = (uint32_t)mIntf->getProfileLevel_l()->profile;
         }
@@ -1591,10 +1632,16 @@ c2_status_t C2RKMpiDec::ensureDecoderState(
     // correctly, so use actual dimention when fetch block, make sure that
     // the output buffer carries all info needed.
     // note: private grallc flag only support gralloc 4.0
-    if (mGrallocVersion == 4 && format == HAL_PIXEL_FORMAT_YCrCb_NV12
-        && mWidth != mHorStride && !mGraphicBufferSource) {
-        blockW = mWidth;
-        usage = C2RKMediaUtils::getStrideUsage(mWidth, mHorStride);
+    if (mGrallocVersion == 4 && !mGraphicBufferSource
+            && format == HAL_PIXEL_FORMAT_YCrCb_NV12) {
+        if (mWidth != mHorStride) {
+            blockW = mWidth;
+            usage = C2RKMediaUtils::getStrideUsage(mWidth, mHorStride);
+        }
+        if (mHeight != mVerStride) {
+            blockH = mHeight;
+            usage |= C2RKMediaUtils::getHStrideUsage(mHeight, mVerStride);
+        }
     }
 
     if (mFbcCfg.mode) {
