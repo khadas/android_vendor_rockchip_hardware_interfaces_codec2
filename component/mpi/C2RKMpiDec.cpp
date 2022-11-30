@@ -533,6 +533,7 @@ C2RKMpiDec::C2RKMpiDec(
       mSignalledInputEos(false),
       mSignalledError(false),
       mLowLatencyMode(false),
+      mGraphicBufferSource(false),
       mBufferMode(false) {
     if (!C2RKMediaUtils::getCodingTypeFromComponentName(name, &mCodingType)) {
         c2_err("failed to get codingType from component %s", name);
@@ -587,6 +588,7 @@ void C2RKMpiDec::onRelease() {
     c2_log_func_enter();
 
     mStarted = false;
+    mGraphicBufferSource = false;
 
     if (!mFlushed) {
         onFlush_sm();
@@ -637,7 +639,7 @@ c2_status_t C2RKMpiDec::onFlush_sm() {
     return ret;
 }
 
-c2_status_t C2RKMpiDec::initDecoder() {
+c2_status_t C2RKMpiDec::initDecoder(const std::shared_ptr<C2BlockPool> &pool) {
     MPP_RET err = MPP_OK;
 
     c2_log_func_enter();
@@ -707,11 +709,13 @@ c2_status_t C2RKMpiDec::initDecoder() {
         MppFrame frame  = nullptr;
         uint32_t mppFmt = mColorFormat;
 
+        mGraphicBufferSource = checkIsGBSource(pool);
         /* user can't process fbc output on bufferMode */
         /* SMPTEST2084 = 6*/
         c2_info("mTransfer %d", mTransfer);
-        if ((mTransfer == 6) || (!mBufferMode && (mWidth * mHeight > 1920 * 1080))
-            || (mProfile == PROFILE_AVC_HIGH_10 || mProfile == PROFILE_HEVC_MAIN_10)) {
+        if (((mTransfer == 6) || (!mBufferMode && (mWidth * mHeight > 1920 * 1080))
+            || (mProfile == PROFILE_AVC_HIGH_10 || mProfile == PROFILE_HEVC_MAIN_10))
+            && !mGraphicBufferSource) {
             mFbcCfg.mode = C2RKFbcDef::getFbcOutputMode(mCodingType);
             if (mFbcCfg.mode) {
                 c2_info("use mpp fbc output mode");
@@ -789,6 +793,37 @@ error:
     }
 
     return C2_CORRUPTED;
+}
+
+bool C2RKMpiDec::checkIsGBSource(const std::shared_ptr<C2BlockPool> &pool) {
+    c2_status_t ret = C2_OK;
+
+    uint32_t blockW = 176;
+    uint32_t blockH = 144;
+    uint64_t usage  = RK_GRALLOC_USAGE_SPECIFY_STRIDE;
+    uint32_t format = HAL_PIXEL_FORMAT_YCrCb_NV12;
+    std::shared_ptr<C2GraphicBlock> block;
+
+    ret = pool->fetchGraphicBlock(blockW, blockH, format,
+                                    C2AndroidMemoryUsage::FromGrallocUsage(usage),
+                                    &block);
+    if (ret != C2_OK) {
+        c2_err("failed to fetchGraphicBlock, err %d", ret);
+        //TODO
+    }
+
+    auto c2Handle = block->handle();
+    uint32_t bqSlot, width, height, format1, stride, generation;
+    uint64_t usage1, bqId;
+
+    android::_UnwrapNativeCodec2GrallocMetadata(
+                c2Handle, &width, &height, &format1, &usage1,
+                &stride, &generation, &bqId, &bqSlot);
+    block.reset();
+    if (usage1 & GRALLOC_USAGE_HW_VIDEO_ENCODER)
+        return true;
+
+    return false;
 }
 
 void C2RKMpiDec::fillEmptyWork(const std::unique_ptr<C2Work> &work) {
@@ -929,7 +964,7 @@ void C2RKMpiDec::process(
 
     // Initialize decoder if not already initialized
     if (!mStarted) {
-        err = initDecoder();
+        err = initDecoder(pool);
         if (err != C2_OK) {
             work->result = C2_BAD_VALUE;
             c2_info("failed to initialize, signalled Error");
@@ -1419,7 +1454,8 @@ c2_status_t C2RKMpiDec::ensureDecoderState(
     // correctly, so use actual dimention when fetch block, make sure that
     // the output buffer carries all info needed.
     // note: private grallc flag only support gralloc 4.0
-    if (mGrallocVersion == 4 && format == HAL_PIXEL_FORMAT_YCrCb_NV12 && mWidth != mHorStride) {
+    if (mGrallocVersion == 4 && format == HAL_PIXEL_FORMAT_YCrCb_NV12 && mWidth != mHorStride
+        && !mGraphicBufferSource) {
         blockW = mWidth;
         usage = C2RKMediaUtils::getStrideUsage(mWidth, mHorStride);
     }

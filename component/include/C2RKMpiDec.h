@@ -106,6 +106,7 @@ private:
     bool mSignalledInputEos;
     bool mSignalledError;
     bool mLowLatencyMode;
+    bool mGraphicBufferSource;
 
     /*
        1. BufferMode:  without surcace
@@ -140,7 +141,8 @@ private:
                     coeffs == o.coeffs && fullRange == o.fullRange;
         }
     } mBitstreamColorAspects;
-
+    //check bufferqueue from GrallocBufferSource or not
+    bool checkIsGBSource(const std::shared_ptr<C2BlockPool> &pool);
     void fillEmptyWork(const std::unique_ptr<C2Work> &work);
     void finishWork(OutWorkEntry *entry);
     c2_status_t drainInternal(
@@ -148,7 +150,7 @@ private:
         const std::shared_ptr<C2BlockPool> &pool,
         const std::unique_ptr<C2Work> &work);
 
-    c2_status_t initDecoder();
+    c2_status_t initDecoder(const std::shared_ptr<C2BlockPool> &pool);
     void getVuiParams(MppFrame frame);
     c2_status_t sendpacket(
             uint8_t *data, size_t size, uint64_t pts, uint32_t flags);
