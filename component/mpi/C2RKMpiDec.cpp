@@ -1175,6 +1175,22 @@ REDO:
         c2_info("info-change with new dimensions(%dx%d) stride(%dx%d) fmt %d", \
                 width, height, hstride, vstride, format);
 
+        //sts:CtsSecurityTestCases:testBug_36819262/testBug_34231231
+        if (mCodingType == MPP_VIDEO_CodingMPEG2 && (width > 1920 || height > 1920)) {
+            c2_err("unsupported resolution: %dx%d", width, height);
+            ret = C2_CORRUPTED;
+            goto exit;
+        }
+
+        //sts:CtsSecurityTestCases:testStagefright_bug_21443020
+        //infochange from 1080p to small resolutionof vp8 may cause system stuck
+        if (mCodingType == MPP_VIDEO_CodingVP8 && (width < 176 || height < 176)
+                && mWidth == 1920) {
+            c2_err("infochange from 1080p to small resolution: %dx%d of vp8", width, height);
+            ret = C2_CORRUPTED;
+            goto exit;
+        }
+
         if (!mBufferMode) {
             clearOutBuffers();
             mpp_buffer_group_clear(mFrmGrp);
