@@ -20,25 +20,27 @@
 #include "C2RKEnv.h"
 #include "C2RKTypes.h"
 
+static C2_U32 envValue = 0;
+void _Rockchip_C2_Log_Init() {
+    Rockchip_C2_GetEnvU32("vendor.c2.log.debug", &envValue, 0);
+}
+
+
 void _Rockchip_C2_Log(ROCKCHIP_LOG_LEVEL logLevel, C2_U32 flag, const char *tag, const char *msg, ...)
 {
-    C2_U32 value = 0;
-
     va_list argptr;
 
     va_start(argptr, msg);
 
     switch (logLevel) {
     case ROCKCHIP_LOG_TRACE: {
-        Rockchip_C2_GetEnvU32("vendor.dump.c2.log", &value, 0);
-        if (value) {
+        if (envValue & C2_TRACE_ON) {
             __android_log_vprint(ANDROID_LOG_DEBUG, tag, msg, argptr);
         }
     }
     break;
     case ROCKCHIP_LOG_DEBUG: {
-        Rockchip_C2_GetEnvU32("vendor.c2.log.debug", &value, 0);
-        if (value & flag) {
+        if (envValue & flag) {
             __android_log_vprint(ANDROID_LOG_DEBUG, tag, msg, argptr);
         }
     } break;

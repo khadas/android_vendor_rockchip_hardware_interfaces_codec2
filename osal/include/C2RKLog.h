@@ -44,9 +44,12 @@ typedef enum _LOG_LEVEL
 #define C2_DBG_FUNCTION                0x80000000
 #define C2_DBG_MALLOC                  0x40000000
 #define C2_DBG_CAPACITYS               0x00000001
+#define C2_TRACE_ON                    0x00000002
 
 void _Rockchip_C2_Log(ROCKCHIP_LOG_LEVEL logLevel, C2_U32 flag, const char *tag, const char *msg, ...);
+void _Rockchip_C2_Log_Init();
 
+#define c2_log_init()            _Rockchip_C2_Log_Init()
 #define c2_info(fmt, ...)        _Rockchip_C2_Log(ROCKCHIP_LOG_INFO,     C2_DBG_UNKNOWN, ROCKCHIP_LOG_TAG, fmt "\n", ##__VA_ARGS__)
 #define c2_trace(fmt, ...)       _Rockchip_C2_Log(ROCKCHIP_LOG_TRACE,    C2_DBG_UNKNOWN, ROCKCHIP_LOG_TAG, fmt "\n", ##__VA_ARGS__)
 #define c2_err(fmt, ...)         _Rockchip_C2_Log(ROCKCHIP_LOG_ERROR,    C2_DBG_UNKNOWN, ROCKCHIP_LOG_TAG, fmt "\n", ##__VA_ARGS__)

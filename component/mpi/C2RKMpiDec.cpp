@@ -536,6 +536,7 @@ C2RKMpiDec::C2RKMpiDec(
       mOutFile(nullptr),
       mInFile(nullptr) {
     c2_info("version: %s", C2_GIT_BUILD_VERSION);
+    c2_log_init();
 
     if (!C2RKMediaUtils::getCodingTypeFromComponentName(name, &mCodingType)) {
         c2_err("failed to get codingType from component %s", name);
