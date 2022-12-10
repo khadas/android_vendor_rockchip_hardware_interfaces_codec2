@@ -866,6 +866,8 @@ void C2RKMpiDec::finishWork(OutWorkEntry *entry) {
     outputWork->input.ordinal.timestamp = 0;
     outputWork->input.ordinal.frameIndex = OUTPUT_WORK_INDEX;
     outputWork->input.ordinal.customOrdinal = 0;
+    outputWork->result = C2_OK;
+
     finish(outputWork, fillWork);
 }
 
