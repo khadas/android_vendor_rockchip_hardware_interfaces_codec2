@@ -152,7 +152,7 @@ uint32_t C2RKGrallocDef::getGrallocVersion() {
 }
 
 uint32_t C2RKGrallocDef::getAndroidVerison() {
-    C2_U32 value;
+    uint32_t value;
     Rockchip_C2_GetEnvU32("ro.product.first_api_level", &value, 0);
     c2_info("Android Version %d", value);
     return value;

@@ -20,6 +20,7 @@
 #include "C2RKComponent.h"
 #include "C2RKInterface.h"
 #include "mpp/rk_mpi.h"
+#include "C2RKDump.h"
 
 #include <mutex>
 #include <utils/Vector.h>
@@ -76,6 +77,7 @@ private:
 
     std::shared_ptr<IntfImpl> mIntf;
     std::mutex mPoolMutex;
+    C2RKDump *mDump;
 
     /* MPI interface parameters */
     MppCtx          mMppCtx;
@@ -110,8 +112,6 @@ private:
        2. SurfaceMode: with surface
     */
     bool mBufferMode;
-    FILE *mOutFile;
-    FILE *mInFile;
 
     uint32_t mProfile;
     struct FbcConfig {

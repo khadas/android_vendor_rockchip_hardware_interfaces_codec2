@@ -25,11 +25,7 @@
 #include "C2RKLog.h"
 #include "mpp/mpp_soc.h"
 
-
 using namespace android;
-
-C2_U32 c2_vdec_debug = 0;
-C2_U32 c2_venc_debug = 0;
 
 bool C2RKMediaUtils::getCodingTypeFromComponentName(
         C2String componentName, MppCodingType *codingType) {

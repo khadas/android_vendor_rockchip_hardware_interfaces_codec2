@@ -22,12 +22,8 @@
 #include "mpp/rk_mpi.h"
 #include <C2.h>
 #include <C2Component.h>
-#include "C2RKVideoGlobal.h"
 
 using namespace android;
-
-extern C2_U32 c2_vdec_debug;
-extern C2_U32 c2_venc_debug;
 
 #define C2_SAFE_FREE(p) { if (p) {free(p); (p)=NULL;} }
 #define C2_ALIGN(x, a)         (((x)+(a)-1)&~((a)-1))

@@ -18,7 +18,6 @@
 #define ANDROID_C2_RK_LOG_H__
 
 #include <stdint.h>
-#include "C2RKTypes.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -46,7 +45,7 @@ typedef enum _LOG_LEVEL
 #define C2_DBG_CAPACITYS               0x00000001
 #define C2_TRACE_ON                    0x00000002
 
-void _Rockchip_C2_Log(ROCKCHIP_LOG_LEVEL logLevel, C2_U32 flag, const char *tag, const char *msg, ...);
+void _Rockchip_C2_Log(ROCKCHIP_LOG_LEVEL logLevel, uint32_t flag, const char *tag, const char *msg, ...);
 void _Rockchip_C2_Log_Init();
 
 #define c2_log_init()            _Rockchip_C2_Log_Init()

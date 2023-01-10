@@ -20,6 +20,7 @@
 #include "C2RKComponent.h"
 #include "mpp/rk_mpi.h"
 #include "C2RKMlvecLegacy.h"
+#include "C2RKDump.h"
 
 namespace android {
 
@@ -65,6 +66,7 @@ private:
     std::shared_ptr<IntfImpl> mIntf;
     MyDmaBuffer_t *mDmaMem;
     C2RKMlvecLegacy *mMlvec;
+    C2RKDump *mDump;
 
     /* MPI interface parameters */
     MppCtx         mMppCtx;
@@ -84,10 +86,6 @@ private:
     int32_t        mCurLayerCount;
     int32_t        mInputCount;
     int32_t        mOutputCount;
-
-    /* dump file for debug */
-    FILE          *mInFile;
-    FILE          *mOutFile;
 
     // configurations used by component in process
     // (TODO: keep this in intf but make them internal only)

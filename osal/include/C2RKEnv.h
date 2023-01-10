@@ -17,20 +17,10 @@
 #ifndef ANDROID_C2_RK_ENV_H__
 #define ANDROID_C2_RK_ENV_H__
 
-#include "C2RKTypes.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-bool Rockchip_C2_GetEnvU32(const char *name, C2_U32 *value, C2_U32 default_value);
+bool Rockchip_C2_GetEnvU32(const char *name, uint32_t *value, uint32_t default_value);
 bool Rockchip_C2_GetEnvStr(const char *name, char *value, char *default_value);
-bool Rockchip_C2_SetEnvU32(const char *name, C2_U32 value);
+bool Rockchip_C2_SetEnvU32(const char *name, uint32_t value);
 bool Rockchip_C2_SetEnvStr(const char *name, char *value);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif  // ANDROID_C2_RK_ENV_H__
 

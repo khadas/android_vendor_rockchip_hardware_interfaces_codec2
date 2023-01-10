@@ -38,7 +38,6 @@
 #include "C2RKEnv.h"
 #include "C2RKExtendParam.h"
 #include "C2RKCodecMapper.h"
-#include "C2RKVideoGlobal.h"
 #include "C2RKVersion.h"
 #include "C2RKChips.h"
 
@@ -912,6 +911,7 @@ C2RKMpiEnc::C2RKMpiEnc(
       mIntf(intfImpl),
       mDmaMem(nullptr),
       mMlvec(nullptr),
+      mDump(new C2RKDump),
       mMppCtx(nullptr),
       mMppMpi(nullptr),
       mEncCfg(nullptr),
@@ -927,9 +927,7 @@ C2RKMpiEnc::C2RKMpiEnc(
       mVerStride(0),
       mCurLayerCount(0),
       mInputCount(0),
-      mOutputCount(0),
-      mInFile(nullptr),
-      mOutFile(nullptr) {
+      mOutputCount(0) {
     c2_info("version: %s", C2_GIT_BUILD_VERSION);
     c2_log_init();
 
@@ -937,35 +935,11 @@ C2RKMpiEnc::C2RKMpiEnc(
         c2_err("failed to get MppCodingType from component %s", name);
     }
 
-    mChipType = getChipName()->type;
-
-    Rockchip_C2_GetEnvU32("vendor.c2.venc.debug", &c2_venc_debug, 0);
-    c2_info("venc_debug: 0x%x", c2_venc_debug);
-
-    if (c2_venc_debug & VIDEO_DBG_RECORD_IN) {
-        char fileName[128];
-        memset(fileName, 0, 128);
-
-        sprintf(fileName, "/data/video/enc_in_%ld.bin", syscall(SYS_gettid));
-        mInFile = fopen(fileName, "wb");
-        if (mInFile == nullptr) {
-            c2_err("failed to open input file, err %s", strerror(errno));
-        } else {
-            c2_info("recording input to %s", fileName);
-        }
-    }
-
-    if (c2_venc_debug & VIDEO_DBG_RECORD_OUT) {
-        char fileName[128];
-        memset(fileName, 0, 128);
-
-        sprintf(fileName, "/data/video/enc_out_%ld.bin", syscall(SYS_gettid));
-        mOutFile = fopen(fileName, "wb");
-        if (mOutFile == nullptr) {
-            c2_err("failed to open output file, err %s", strerror(errno));
-        } else {
-            c2_info("recording output to %s", fileName);
-        }
+    RKChipInfo *chipInfo = getChipName();
+    if (chipInfo != nullptr) {
+        mChipType = getChipName()->type;
+    } else {
+        mChipType = RK_CHIP_UNKOWN;
     }
 }
 
@@ -1275,7 +1249,7 @@ c2_status_t C2RKMpiEnc::setupVuiParams() {
             sfAspects, &primaries, &transfer,
             &matrixCoeffs, &range);
 
-    if (mEncCfg != NULL) {
+    if (mEncCfg != nullptr) {
         mpp_enc_cfg_set_s32(mEncCfg, "prep:range", range ? 2 : 0);
         mpp_enc_cfg_set_s32(mEncCfg, "prep:colorprim", primaries);
         mpp_enc_cfg_set_s32(mEncCfg, "prep:colortrc", transfer);
@@ -1747,6 +1721,9 @@ c2_status_t C2RKMpiEnc::initEncoder() {
         goto error;
     }
 
+    // init dump object.
+    mDump->initDump(mSize->width, mSize->height, true);
+
     mStarted = true;
 
     return C2_OK;
@@ -1786,18 +1763,13 @@ c2_status_t C2RKMpiEnc::releaseEncoder() {
     }
 
     if (mMlvec != nullptr) {
-        free(mMlvec);
+        delete mMlvec;
         mMlvec = nullptr;
     }
 
-    if (mInFile != nullptr) {
-        fclose(mInFile);
-        mInFile = nullptr;
-    }
-
-    if (mOutFile != nullptr) {
-        fclose(mOutFile);
-        mOutFile = nullptr;
+    if (mDump != nullptr) {
+        delete mDump;
+        mDump = nullptr;
     }
 
     return C2_OK;
@@ -1854,11 +1826,6 @@ void C2RKMpiEnc::finishWork(
 
     // copy mpp output to c2 output
     memcpy(wView.data(), data, len);
-
-    if (mOutFile != nullptr) {
-        fwrite(data, 1, len, mOutFile);
-        fflush(mOutFile);
-    }
 
     RK_S32 isIntra = 0;
     std::shared_ptr<C2Buffer> buffer = createLinearBuffer(block, 0, len);
@@ -2026,10 +1993,8 @@ void C2RKMpiEnc::process(
         memcpy(csd->m.value, extradata, extradataSize);
         work->worklets.front()->output.configUpdate.push_back(std::move(csd));
 
-        if (mOutFile != nullptr) {
-            fwrite(extradata, 1, extradataSize , mOutFile);
-            fflush(mOutFile);
-        }
+        /* dump output data if neccessary */
+        mDump->recordOutFile(extradata, extradataSize);
 
         mSpsPpsHeaderReceived = true;
 
@@ -2262,10 +2227,8 @@ c2_status_t C2RKMpiEnc::getInBufferFromWork(
         RgaParam src, dst;
         uint32_t fd = c2Handle->data[0];
 
-        if (mInFile != nullptr) {
-            fwrite(input->data()[0], 1, stride * height * 4, mInFile);
-            fflush(mInFile);
-        }
+        /* dump input data if neccessary */
+        mDump->recordInFile((void*)input->data()[0], stride, height, RAW_TYPE_RGBA);
 
         if (mChipType == RK_CHIP_3588 || !((stride & 0xf) || (height & 0xf))) {
             outBuffer->fd = fd;
@@ -2302,10 +2265,8 @@ c2_status_t C2RKMpiEnc::getInBufferFromWork(
     case C2PlanarLayout::TYPE_YUV: {
         uint32_t fd = c2Handle->data[0];
 
-        if (mInFile != nullptr) {
-            fwrite(input->data()[0], 1, stride * height * 3 / 2, mInFile);
-            fflush(mInFile);
-        }
+        /* dump input data if neccessary */
+        mDump->recordInFile((void*)input->data()[0], stride, height, RAW_TYPE_YUV420SP);
 
         /*
          * mpp-driver fetch buffer 16 bits at one time, so the stride of
@@ -2429,6 +2390,9 @@ c2_status_t C2RKMpiEnc::sendframe(
         goto error;
     }
 
+    /* dump show input process fps if neccessary */
+    mDump->showDebugFps(DUMP_ROLE_INPUT);
+
     mInputCount++;
 
     ret = C2_OK;
@@ -2452,9 +2416,17 @@ c2_status_t C2RKMpiEnc::getoutpacket(OutWorkEntry *entry) {
         int64_t  pts = mpp_packet_get_pts(packet);
         size_t   len = mpp_packet_get_length(packet);
         uint32_t eos = mpp_packet_get_eos(packet);
+        void   *data = mpp_packet_get_data(packet);
+
 
         mOutputCount++;
         c2_trace("get outpacket pts %lld size %d eos %d", pts, len, eos);
+
+        /* dump output data if neccessary */
+        mDump->recordOutFile(data, len);
+
+        /* dump show input process fps if neccessary */
+        mDump->showDebugFps(DUMP_ROLE_OUTPUT);
 
         if (eos) {
             c2_info("get output eos");

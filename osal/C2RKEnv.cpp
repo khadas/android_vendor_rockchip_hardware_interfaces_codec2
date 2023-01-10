@@ -24,7 +24,7 @@
 #include "C2RKLog.h"
 #include "C2RKEnv.h"
 
-bool Rockchip_C2_GetEnvU32(const char *name, C2_U32 *value, C2_U32 default_value)
+bool Rockchip_C2_GetEnvU32(const char *name, uint32_t *value, uint32_t default_value)
 {
     bool ret = true;
     char prop[PROP_VALUE_MAX + 1];
@@ -63,11 +63,11 @@ EXIT:
     return ret;
 }
 
-bool Rockchip_C2_SetEnvU32(const char *name, C2_U32 value)
+bool Rockchip_C2_SetEnvU32(const char *name, uint32_t value)
 {
     bool ret = true;
     char buf[PROP_VALUE_MAX + 1];
-    snprintf(buf, sizeof(buf), "%lu", value);
+    snprintf(buf, sizeof(buf), "%d", value);
     int len = __system_property_set(name, buf);
     if (len <= 0) {
         c2_err("property set failed!");

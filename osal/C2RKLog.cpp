@@ -18,15 +18,14 @@
 #include <android/log.h>
 #include "C2RKLog.h"
 #include "C2RKEnv.h"
-#include "C2RKTypes.h"
 
-static C2_U32 envValue = 0;
+static uint32_t envValue = 0;
 void _Rockchip_C2_Log_Init() {
     Rockchip_C2_GetEnvU32("vendor.c2.log.debug", &envValue, 0);
 }
 
 
-void _Rockchip_C2_Log(ROCKCHIP_LOG_LEVEL logLevel, C2_U32 flag, const char *tag, const char *msg, ...)
+void _Rockchip_C2_Log(ROCKCHIP_LOG_LEVEL logLevel, uint32_t flag, const char *tag, const char *msg, ...)
 {
     va_list argptr;
 

@@ -512,6 +512,7 @@ C2RKMpiDec::C2RKMpiDec(
         const std::shared_ptr<IntfImpl> &intfImpl)
     : C2RKComponent(std::make_shared<C2RKInterface<IntfImpl>>(name, id, intfImpl)),
       mIntf(intfImpl),
+      mDump(new C2RKDump),
       mMppCtx(nullptr),
       mMppMpi(nullptr),
       mCodingType(MPP_VIDEO_CodingUnused),
@@ -532,9 +533,7 @@ C2RKMpiDec::C2RKMpiDec(
       mSignalledInputEos(false),
       mSignalledError(false),
       mLowLatencyMode(false),
-      mBufferMode(false),
-      mOutFile(nullptr),
-      mInFile(nullptr) {
+      mBufferMode(false) {
     c2_info("version: %s", C2_GIT_BUILD_VERSION);
     c2_log_init();
 
@@ -549,35 +548,6 @@ C2RKMpiDec::C2RKMpiDec(
     uint32_t androidVersion = C2RKGrallocDef::getAndroidVerison();
     if (grallocVersion > 3 && androidVersion >= 30) {
         mGrallocVersion = 4;
-    }
-
-    Rockchip_C2_GetEnvU32("vendor.c2.vdec.debug", &c2_vdec_debug, 0);
-    c2_info("vdec_debug: 0x%x", c2_vdec_debug);
-
-    if (c2_vdec_debug & VIDEO_DBG_RECORD_OUT) {
-        char fileName[128];
-        memset(fileName, 0, 128);
-
-        sprintf(fileName, "/data/video/dec_out_%ld.bin", syscall(SYS_gettid));
-        mOutFile = fopen(fileName, "wb");
-        if (mOutFile == nullptr) {
-            c2_err("failed to open output file, err %s", strerror(errno));
-        } else {
-            c2_info("recording output to %s", fileName);
-        }
-    }
-
-    if (c2_vdec_debug & VIDEO_DBG_RECORD_IN) {
-        char fileName[128];
-        memset(fileName, 0, 128);
-
-        sprintf(fileName, "/data/video/dec_in_%ld.bin", syscall(SYS_gettid));
-        mInFile = fopen(fileName, "wb");
-        if (mInFile == nullptr) {
-            c2_err("failed to open output file, err %s", strerror(errno));
-        } else {
-            c2_info("recording output to %s", fileName);
-        }
     }
 }
 
@@ -618,6 +588,11 @@ void C2RKMpiDec::onRelease() {
         mOutBlock.reset();
     }
 
+    if (mDump != nullptr) {
+        delete mDump;
+        mDump = nullptr;
+    }
+
     if (mFrmGrp != nullptr) {
         mpp_buffer_group_put(mFrmGrp);
         mFrmGrp = nullptr;
@@ -626,15 +601,6 @@ void C2RKMpiDec::onRelease() {
     if (mMppCtx) {
         mpp_destroy(mMppCtx);
         mMppCtx = nullptr;
-    }
-
-    if (mOutFile != nullptr) {
-        fclose(mOutFile);
-        mOutFile = nullptr;
-    }
-    if (mInFile != nullptr) {
-        fclose(mInFile);
-        mInFile = nullptr;
     }
 }
 
@@ -796,6 +762,10 @@ c2_status_t C2RKMpiDec::initDecoder() {
                                        &mFbcCfg.paddingY);
         c2_info("fbc padding offset(%d, %d)", mFbcCfg.paddingX, mFbcCfg.paddingY);
     }
+
+
+    // init dump object
+    mDump->initDump(mHorStride, mVerStride, false);
 
     mStarted = true;
 
@@ -1125,11 +1095,6 @@ c2_status_t C2RKMpiDec::sendpacket(uint8_t *data, size_t size, uint64_t pts, uin
     mpp_packet_set_pos(packet, data);
     mpp_packet_set_length(packet, size);
 
-    if (mInFile != nullptr) {
-        fwrite(data, 1, size, mInFile);
-        fflush(mInFile);
-    }
-
     if (flags & C2FrameData::FLAG_END_OF_STREAM) {
         c2_info("send input eos");
         mpp_packet_set_eos(packet);
@@ -1147,6 +1112,10 @@ c2_status_t C2RKMpiDec::sendpacket(uint8_t *data, size_t size, uint64_t pts, uin
         err = mMppMpi->decode_put_packet(mMppCtx, packet);
         if (err == MPP_OK) {
             c2_trace("send packet pts %lld size %d", pts, size);
+            /* dump input data if neccessary */
+            mDump->recordInFile(data, size);
+            /* dump show input process fps if neccessary */
+            mDump->showDebugFps(DUMP_ROLE_INPUT);
             break;
         }
 
@@ -1280,11 +1249,6 @@ REDO:
             outBuffer->site = BUFFER_SITE_BY_C2;
 
             outblock = outBuffer->block;
-            if (mOutFile != nullptr) {
-                uint8_t *src = (uint8_t*)mpp_buffer_get_ptr(mppBuffer);
-                fwrite(src, 1, hstride * vstride * 3 / 2, mOutFile);
-                fflush(mOutFile);
-            }
         }
 
         if (mCodingType == MPP_VIDEO_CodingAVC ||
@@ -1292,6 +1256,15 @@ REDO:
             mCodingType == MPP_VIDEO_CodingMPEG2) {
             getVuiParams(frame);
         }
+
+        /* dump output data if neccessary */
+        if (mDump->getDumpFlag() & C2_DUMP_RECORD_OUT) {
+            void *data = mpp_buffer_get_ptr(mppBuffer);
+            mDump->recordOutFile(data, hstride, vstride, RAW_TYPE_YUV420SP);
+        }
+
+        /* dump show output process fps if neccessary */
+        mDump->showDebugFps(DUMP_ROLE_OUTPUT);
 
         ret = C2_OK;
     }

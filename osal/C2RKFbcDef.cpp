@@ -174,7 +174,7 @@ int C2RKFbcDef::getFbcOutputMode(MppCodingType codecId) {
     if (chipInfo == NULL)
         return 0;
 
-    C2_U32 value;
+    uint32_t value;
     Rockchip_C2_GetEnvU32("codec2_fbc_disable", &value, 0);
     if (value == 1) {
         c2_info("property match, disable fbc output mode");
