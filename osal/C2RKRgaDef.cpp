@@ -32,8 +32,8 @@ rga_buffer_handle_t importRgaBuffer(RgaParam *param, int32_t format) {
 
     memset(&imParam, 0, sizeof(im_handle_param_t));
 
-    imParam.width  = param->width;
-    imParam.height = param->height;
+    imParam.width  = param->wstride;
+    imParam.height = param->hstride;
     imParam.format = format;
 
     return importbuffer_fd(param->fd, &imParam);
