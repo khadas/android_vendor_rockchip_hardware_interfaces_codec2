@@ -814,7 +814,7 @@ private:
 
 c2_status_t C2RKComponentStore::ComponentModule::init(
         std::string componentName) {
-    c2_trace_f("componentName: %s", componentName.c_str());
+    c2_trace("componentName: %s", componentName.c_str());
     mLibHandle = dlopen(C2_RK_COMPONENT_PATH, RTLD_NOW|RTLD_NODELETE);
     LOG_ALWAYS_FATAL_IF(mLibHandle == nullptr,
             "could not dlopen %s: %s", C2_RK_COMPONENT_PATH, dlerror());
@@ -938,7 +938,6 @@ c2_status_t C2RKComponentStore::ComponentModule::init(
 }
 
 C2RKComponentStore::ComponentModule::~ComponentModule() {
-    c2_trace_f("in");
     if (destroyFactory && mComponentFactory) {
         destroyFactory(mComponentFactory);
     }
@@ -1046,7 +1045,6 @@ void C2RKComponentStore::visitComponents() {
 
 std::vector<std::shared_ptr<const C2Component::Traits>> C2RKComponentStore::listComponents() {
     // This method SHALL return within 500ms.
-    c2_trace_f("in");
     visitComponents();
     return mComponentList;
 }
@@ -1066,7 +1064,6 @@ c2_status_t C2RKComponentStore::findComponent(
 c2_status_t C2RKComponentStore::createComponent(
         C2String name, std::shared_ptr<C2Component> *const component) {
     // This method SHALL return within 100ms.
-    c2_trace_f("in");
     component->reset();
     std::shared_ptr<ComponentModule> module;
     c2_status_t res = findComponent(name, &module);
@@ -1079,7 +1076,6 @@ c2_status_t C2RKComponentStore::createComponent(
 
 c2_status_t C2RKComponentStore::createInterface(
         C2String name, std::shared_ptr<C2ComponentInterface> *const interface) {
-    c2_trace_f("in");
     // This method SHALL return within 100ms.
     interface->reset();
     std::shared_ptr<ComponentModule> module;
@@ -1110,7 +1106,6 @@ std::shared_ptr<C2ParamReflector> C2RKComponentStore::getParamReflector() const 
 }
 
 std::shared_ptr<C2ComponentStore> GetCodec2PlatformComponentStore() {
-    c2_trace_f("in");
     static std::mutex mutex;
     static std::weak_ptr<C2ComponentStore> platformStore;
     std::lock_guard<std::mutex> lock(mutex);

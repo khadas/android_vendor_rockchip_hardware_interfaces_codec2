@@ -29,8 +29,6 @@ using namespace android;
 
 bool C2RKMediaUtils::getCodingTypeFromComponentName(
         C2String componentName, MppCodingType *codingType) {
-    FunctionIn();
-
     for (int i = 0; i < C2_RK_ARRAY_ELEMS(kComponentMapEntry); ++i) {
         if (!strcasecmp(componentName.c_str(), kComponentMapEntry[i].componentName.c_str())) {
             *codingType = kComponentMapEntry[i].codingType;
@@ -40,14 +38,10 @@ bool C2RKMediaUtils::getCodingTypeFromComponentName(
 
     *codingType = MPP_VIDEO_CodingUnused;
 
-    FunctionOut();
-
     return false;
 }
 
 bool C2RKMediaUtils::getMimeFromComponentName(C2String componentName, C2String *mime) {
-    FunctionIn();
-
     for (int i = 0; i < C2_RK_ARRAY_ELEMS(kComponentMapEntry); ++i) {
         if (!strcasecmp(componentName.c_str(), kComponentMapEntry[i].componentName.c_str())) {
             *mime = kComponentMapEntry[i].mime;
@@ -55,13 +49,9 @@ bool C2RKMediaUtils::getMimeFromComponentName(C2String componentName, C2String *
         }
     }
 
-    FunctionOut();
-
     return false;
 }
 bool C2RKMediaUtils::getKindFromComponentName(C2String componentName, C2Component::kind_t *kind) {
-    FunctionIn();
-
     C2Component::kind_t tmp_kind = C2Component::KIND_OTHER;
     if (componentName.find("encoder") != std::string::npos) {
         tmp_kind = C2Component::KIND_ENCODER;
@@ -73,14 +63,10 @@ bool C2RKMediaUtils::getKindFromComponentName(C2String componentName, C2Componen
 
     *kind = tmp_kind;
 
-    FunctionOut();
-
     return true;
 }
 
 bool C2RKMediaUtils::getDomainFromComponentName(C2String componentName, C2Component::domain_t *domain) {
-    FunctionIn();
-
     MppCodingType codingType;
     C2Component::domain_t tmp_domain;
 
@@ -108,15 +94,11 @@ bool C2RKMediaUtils::getDomainFromComponentName(C2String componentName, C2Compon
 
     *domain = tmp_domain;
 
-    FunctionOut();
-
     return true;
 }
 
 
 int32_t C2RKMediaUtils::colorFormatMpiToAndroid(uint32_t format, bool fbcMode) {
-    FunctionIn();
-
     int32_t aFormat = HAL_PIXEL_FORMAT_YCrCb_NV12;
 
     switch (format & MPP_FRAME_FMT_MASK) {
@@ -154,8 +136,6 @@ int32_t C2RKMediaUtils::colorFormatMpiToAndroid(uint32_t format, bool fbcMode) {
             c2_err("unsupport color format: 0x%x", format);
         }
     }
-
-    FunctionOut();
 
     return aFormat;
 }

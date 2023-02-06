@@ -472,7 +472,7 @@ public:
         uint32_t maxBframes = 0;
         ParseGop(gop.v, nullptr, nullptr, &maxBframes);
         me.set().value = maxBframes;
-        c2_info("%s %d in", __FUNCTION__, __LINE__);
+        c2_log_func_enter();
         return C2R::Ok();
     }
 
@@ -516,7 +516,7 @@ public:
     static C2R GopSetter(bool mayBlock, C2P<C2StreamGopTuning::output> &me) {
         (void)mayBlock;
         (void)me;
-        c2_info_f("in");
+        c2_log_func_enter();
         return C2R::Ok();
     }
 
@@ -524,7 +524,7 @@ public:
                                          C2P<C2StreamPictureQuantizationTuning::output> &me) {
         (void)mayBlock;
         (void)me;
-        c2_info_f("in");
+        c2_log_func_enter();
         return C2R::Ok();
     }
 
@@ -729,7 +729,7 @@ public:
             bool mayBlock, C2P<C2StreamTemporalLayeringTuning::output>& me) {
         (void)mayBlock;
         (void)me;
-        c2_info_f("in");
+        c2_log_func_enter();
         return C2R::Ok();
     }
 
@@ -737,7 +737,7 @@ public:
             bool mayBlock, C2P<C2PrependHeaderModeSetting>& me) {
         (void)mayBlock;
         (void)me;
-        c2_info_f("in");
+        c2_log_func_enter();
         return C2R::Ok();
     }
 
@@ -745,7 +745,7 @@ public:
             bool mayBlock, C2P<C2MProfileLevel::output> &me) {
         (void)mayBlock;
         (void)me;
-        c2_info_f("in");
+        c2_log_func_enter();
         return C2R::Ok();
     }
 
@@ -753,7 +753,7 @@ public:
             bool mayBlock, C2P<C2SliceSpacing::output> &me) {
         (void)mayBlock;
         (void)me;
-        c2_info_f("in");
+        c2_log_func_enter();
         return C2R::Ok();
     }
 
@@ -761,7 +761,7 @@ public:
             bool mayBlock, C2P<C2NumLTRFrms::output> &me) {
         (void)mayBlock;
         (void)me;
-        c2_info_f("in");
+        c2_log_func_enter();
         return C2R::Ok();
     }
 
@@ -769,7 +769,7 @@ public:
             bool mayBlock, C2P<C2SarSize::output> &me) {
         (void)mayBlock;
         (void)me;
-        c2_info_f("in");
+        c2_log_func_enter();
         return C2R::Ok();
     }
 
@@ -777,7 +777,7 @@ public:
             bool mayBlock, C2P<C2InputQueuCtl::output> &me) {
         (void)mayBlock;
         (void)me;
-        c2_info_f("in");
+        c2_log_func_enter();
         return C2R::Ok();
     }
 
@@ -785,7 +785,7 @@ public:
             bool mayBlock, C2P<C2LtrCtlMark::input> &me) {
         (void)mayBlock;
         (void)me;
-        c2_info_f("in");
+        c2_log_func_enter();
         return C2R::Ok();
     }
 
@@ -793,7 +793,7 @@ public:
             bool mayBlock, C2P<C2LtrCtlUse::input> &me) {
         (void)mayBlock;
         (void)me;
-        c2_info_f("in");
+        c2_log_func_enter();
         return C2R::Ok();
     }
 
@@ -801,7 +801,7 @@ public:
             bool mayBlock, C2P<C2TriggerTime::input> &me) {
         (void)mayBlock;
         (void)me;
-        c2_info_f("in");
+        c2_log_func_enter();
         return C2R::Ok();
     }
 
@@ -809,7 +809,7 @@ public:
         uint32_t cProfile = mProfileLevel->profile;
         uint32_t mProfile = mMlvecParams->profileLevel->profile;
 
-        c2_trace_f("cProfile %d mProfile %d", cProfile, mProfile);
+        c2_trace("cProfile %d mProfile %d", cProfile, mProfile);
 
         if (type == MPP_VIDEO_CodingAVC) {
             if (mProfile > 0) {
@@ -820,7 +820,7 @@ public:
         } else if (type == MPP_VIDEO_CodingHEVC) {
             return C2RKCodecMapper::getMppH265Profile(cProfile);
         } else {
-            c2_err_f("unsupport coding type:%d", type);
+            c2_err("unsupport coding type:%d", type);
             return 0;
         }
     }
@@ -829,7 +829,7 @@ public:
         uint32_t cLevel = mProfileLevel->level;
         uint32_t mLevel = mMlvecParams->profileLevel->level;
 
-        c2_trace_f("cLevel %d mLevel %d", cLevel, mLevel);
+        c2_trace("cLevel %d mLevel %d", cLevel, mLevel);
 
         if (type == MPP_VIDEO_CodingAVC) {
             if (mLevel) {
@@ -840,7 +840,7 @@ public:
         }  else if (type == MPP_VIDEO_CodingHEVC) {
             return C2RKCodecMapper::getMppH265Level(cLevel);
         } else {
-            c2_err_f("unsupport coding type:%d", type);
+            c2_err("unsupport coding type:%d", type);
             return 0;
         }
     }
@@ -849,7 +849,7 @@ public:
         int32_t cMode = mBitrateMode->value;
         int32_t mMode = mMlvecParams->rateControl->value;
 
-        c2_trace_f("cMode %d mMode %d", cMode, mMode);
+        c2_trace("cMode %d mMode %d", cMode, mMode);
 
         if (mMode >= 0) {
             c2_trace("get mlvec bitrate mode setup, value %d", mMode);
@@ -928,9 +928,6 @@ C2RKMpiEnc::C2RKMpiEnc(
       mCurLayerCount(0),
       mInputCount(0),
       mOutputCount(0) {
-    c2_info("version: %s", C2_GIT_BUILD_VERSION);
-    c2_log_init();
-
     if (!C2RKMediaUtils::getCodingTypeFromComponentName(name, &mCodingType)) {
         c2_err("failed to get MppCodingType from component %s", name);
     }
@@ -941,36 +938,38 @@ C2RKMpiEnc::C2RKMpiEnc(
     } else {
         mChipType = RK_CHIP_UNKOWN;
     }
+
+    c2_info("component name %s\r\nversion: %s", name, C2_GIT_BUILD_VERSION);
 }
 
 C2RKMpiEnc::~C2RKMpiEnc() {
-    c2_info_f("in");
+    c2_log_func_enter();
     onRelease();
 }
 
 c2_status_t C2RKMpiEnc::onInit() {
-    c2_info_f("in");
+    c2_log_func_enter();
     return C2_OK;
 }
 
 c2_status_t C2RKMpiEnc::onStop() {
-    c2_info_f("in");
+    c2_log_func_enter();
     releaseEncoder();
     return C2_OK;
 }
 
 void C2RKMpiEnc::onReset() {
-    c2_info_f("in");
+    c2_log_func_enter();
     releaseEncoder();
 }
 
 void C2RKMpiEnc::onRelease() {
-    c2_info_f("in");
+    c2_log_func_enter();
     releaseEncoder();
 }
 
 c2_status_t C2RKMpiEnc::onFlush_sm() {
-    c2_info_f("in");
+    c2_log_func_enter();
     return C2_OK;
 }
 
@@ -1636,7 +1635,7 @@ c2_status_t C2RKMpiEnc::initEncoder() {
     int err = 0;
     MppPollType timeout = MPP_POLL_BLOCK;
 
-    c2_info_f("in");
+    c2_log_func_enter();
 
     {
         IntfImpl::Lock lock = mIntf->lock();
@@ -1778,7 +1777,7 @@ c2_status_t C2RKMpiEnc::releaseEncoder() {
 void C2RKMpiEnc::fillEmptyWork(const std::unique_ptr<C2Work>& work) {
     uint32_t flags = 0;
 
-    c2_trace_f("in");
+    c2_trace("called");
 
     if (work->input.flags & C2FrameData::FLAG_END_OF_STREAM) {
         flags |= C2FrameData::FLAG_END_OF_STREAM;
@@ -1861,7 +1860,7 @@ c2_status_t C2RKMpiEnc::drainInternal(
         uint32_t drainMode,
         const std::shared_ptr<C2BlockPool> &pool,
         const std::unique_ptr<C2Work> &work) {
-    c2_trace_f("in");
+    c2_log_func_enter();
 
     if (drainMode == NO_DRAIN) {
         c2_warn("drain with NO_DRAIN: no-op");
@@ -1891,7 +1890,7 @@ c2_status_t C2RKMpiEnc::drainInternal(
         }
     }
 
-    c2_info_f("out");
+    c2_log_func_leave();
 
     return C2_OK;
 }
@@ -2470,7 +2469,7 @@ public:
             c2_node_id_t id,
             std::shared_ptr<C2Component>* const component,
             std::function<void(C2Component*)> deleter) override {
-        c2_trace_f("in");
+        c2_log_func_enter();
         *component = std::shared_ptr<C2Component>(
                 new C2RKMpiEnc(
                         mComponentName.c_str(),
@@ -2485,7 +2484,7 @@ public:
             c2_node_id_t id,
             std::shared_ptr<C2ComponentInterface>* const interface,
             std::function<void(C2ComponentInterface*)> deleter) override {
-        c2_trace("%s %d in", __FUNCTION__, __LINE__);
+        c2_log_func_enter();
         *interface = std::shared_ptr<C2ComponentInterface>(
                 new C2RKInterface<C2RKMpiEnc::IntfImpl>(
                         mComponentName.c_str(),
@@ -2507,7 +2506,6 @@ private:
 };
 
 C2ComponentFactory* CreateRKMpiEncFactory(std::string componentName) {
-    c2_trace_f("in");
     return new ::android::C2RKMpiEncFactory(componentName);
 }
 

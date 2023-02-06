@@ -17,65 +17,42 @@
 #ifndef ANDROID_C2_RK_LOG_H__
 #define ANDROID_C2_RK_LOG_H__
 
-#include <stdint.h>
+#ifndef ROCKCHIP_LOG_TAG
+#define ROCKCHIP_LOG_TAG    "rk_c2_log"
+#endif
+
+#define C2_LOG_ERROR        0   /* error conditions */
+#define C2_LOG_WARNING      1   /* warning conditions */
+#define C2_LOG_INFO         2   /* informational */
+#define C2_LOG_DEBUG        3   /* debug-level messages */
+#define C2_LOG_TRACE        4   /* trace messages */
+
+#define c2_info(format, ...)    c2_log(C2_LOG_INFO,     format, ##__VA_ARGS__)
+#define c2_warn(format, ...)    c2_log(C2_LOG_WARNING,  format, ##__VA_ARGS__)
+#define c2_err(format, ...)     c2_log(C2_LOG_ERROR,    format, ##__VA_ARGS__)
+#define c2_debug(format, ...)   c2_log(C2_LOG_DEBUG,    format, ##__VA_ARGS__)
+#define c2_trace(format, ...)   c2_log(C2_LOG_TRACE,    format, ##__VA_ARGS__)
+
+// function call log
+#define c2_log_func_enter()     c2_info("%s enter", __FUNCTION__)
+#define c2_log_func_leave()     c2_info("%s leave", __FUNCTION__)
+#define c2_log_func_called()    c2_info("%s called", __FUNCTION__)
+#define c2_trace_func_enter()   c2_trace("%s enter", __FUNCTION__)
+#define c2_trace_func_leave()   c2_trace("%s leave", __FUNCTION__)
+#define c2_trace_func_called()  c2_trace("%s called", __FUNCTION__)
+
+#define c2_log(level, fmt, ...) \
+        _c2_log(level, ROCKCHIP_LOG_TAG, fmt, __FUNCTION__, __LINE__, ##__VA_ARGS__)
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#ifndef ROCKCHIP_LOG_TAG
-#define ROCKCHIP_LOG_TAG    "rk_c2_log"
-#endif
-
-typedef enum _LOG_LEVEL
-{
-    ROCKCHIP_LOG_TRACE,
-    ROCKCHIP_LOG_INFO,
-    ROCKCHIP_LOG_WARNING,
-    ROCKCHIP_LOG_ERROR,
-    ROCKCHIP_LOG_DEBUG
-} ROCKCHIP_LOG_LEVEL;
-
-/*
- * omx_debug bit definition
- */
-#define C2_DBG_UNKNOWN                 0x00000000
-#define C2_DBG_FUNCTION                0x80000000
-#define C2_DBG_MALLOC                  0x40000000
-#define C2_DBG_CAPACITYS               0x00000001
-#define C2_TRACE_ON                    0x00000002
-
-void _Rockchip_C2_Log(ROCKCHIP_LOG_LEVEL logLevel, uint32_t flag, const char *tag, const char *msg, ...);
-void _Rockchip_C2_Log_Init();
-
-#define c2_log_init()            _Rockchip_C2_Log_Init()
-#define c2_info(fmt, ...)        _Rockchip_C2_Log(ROCKCHIP_LOG_INFO,     C2_DBG_UNKNOWN, ROCKCHIP_LOG_TAG, fmt "\n", ##__VA_ARGS__)
-#define c2_trace(fmt, ...)       _Rockchip_C2_Log(ROCKCHIP_LOG_TRACE,    C2_DBG_UNKNOWN, ROCKCHIP_LOG_TAG, fmt "\n", ##__VA_ARGS__)
-#define c2_err(fmt, ...)         _Rockchip_C2_Log(ROCKCHIP_LOG_ERROR,    C2_DBG_UNKNOWN, ROCKCHIP_LOG_TAG, fmt "\n", ##__VA_ARGS__)
-#define c2_warn(fmt, ...)        _Rockchip_C2_Log(ROCKCHIP_LOG_WARNING,  C2_DBG_UNKNOWN, ROCKCHIP_LOG_TAG, fmt "\n", ##__VA_ARGS__)
-
-#define c2_info_f(fmt, ...)      _Rockchip_C2_Log(ROCKCHIP_LOG_INFO,     C2_DBG_UNKNOWN, ROCKCHIP_LOG_TAG, "%s(%d): " fmt "\n",__FUNCTION__, __LINE__, ##__VA_ARGS__)
-#define c2_trace_f(fmt, ...)     _Rockchip_C2_Log(ROCKCHIP_LOG_TRACE,    C2_DBG_UNKNOWN, ROCKCHIP_LOG_TAG, "%s(%d): " fmt "\n",__FUNCTION__, __LINE__, ##__VA_ARGS__)
-#define c2_err_f(fmt, ...)       _Rockchip_C2_Log(ROCKCHIP_LOG_ERROR,    C2_DBG_UNKNOWN, ROCKCHIP_LOG_TAG, "%s(%d): " fmt "\n",__FUNCTION__, __LINE__, ##__VA_ARGS__)
-#define c2_warn_f(fmt, ...)      _Rockchip_C2_Log(ROCKCHIP_LOG_WARNING,  C2_DBG_UNKNOWN, ROCKCHIP_LOG_TAG, "%s(%d): " fmt "\n",__FUNCTION__, __LINE__, ##__VA_ARGS__)
-
-#define _c2_dbg(fmt, ...)          _Rockchip_C2_Log(ROCKCHIP_LOG_INFO,     C2_DBG_UNKNOWN, ROCKCHIP_LOG_TAG, "%s(%d): " fmt "\n",__FUNCTION__, __LINE__, ##__VA_ARGS__)
-
-#define c2_dbg_f(flags, fmt, ...)  _Rockchip_C2_Log(ROCKCHIP_LOG_DEBUG, flags, ROCKCHIP_LOG_TAG, "%s(%d): " fmt "\n",__FUNCTION__, __LINE__, ##__VA_ARGS__)
-
-#define c2_dbg(debug, flag, fmt, ...) \
-            do { \
-               if (debug & flag) \
-                   _c2_dbg(fmt, ## __VA_ARGS__); \
-            } while (0)
-
-#define FunctionIn()  c2_dbg_f(C2_DBG_FUNCTION, "IN")
-
-#define FunctionOut() c2_dbg_f(C2_DBG_FUNCTION, "OUT")
+void _c2_log(uint32_t level, const char *tag, const char *fmt,
+             const char *fname, const uint32_t row, ...);
 
 #ifdef __cplusplus
 }
 #endif
 
 #endif  // ANDROID_C2_RK_LOG_H__
-

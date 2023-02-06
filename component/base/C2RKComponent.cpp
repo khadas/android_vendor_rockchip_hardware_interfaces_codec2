@@ -202,27 +202,19 @@ C2RKComponent::C2RKComponent(
       mIntf(intf),
       mLooper(new ALooper),
       mHandler(new WorkHandler) {
-    FunctionIn();
-
     mLooper->setName(intf->getName().c_str());
     (void)mLooper->registerHandler(mHandler);
     mLooper->start(false, false, ANDROID_PRIORITY_VIDEO);
-
-    FunctionOut();
 }
 
 C2RKComponent::~C2RKComponent() {
-    FunctionIn();
-
     mLooper->unregisterHandler(mHandler->id());
     (void)mLooper->stop();
-
-    FunctionOut();
 }
 
 c2_status_t C2RKComponent::setListener_vb(
         const std::shared_ptr<C2Component::Listener> &listener, c2_blocking_t mayBlock) {
-    FunctionIn();
+    c2_log_func_enter();
 
     mHandler->setComponent(shared_from_this());
 
@@ -237,14 +229,13 @@ c2_status_t C2RKComponent::setListener_vb(
     state->mListener = listener;
     // TODO: wait for listener change to have taken place before returning
     // (e.g. if there is an ongoing listener callback)
-    FunctionOut();
+
+    c2_log_func_leave();
 
     return C2_OK;
 }
 
 c2_status_t C2RKComponent::queue_nb(std::list<std::unique_ptr<C2Work>> * const items) {
-    FunctionIn();
-
     {
         Mutexed<ExecState>::Locked state(mExecState);
         if (state->mState != RUNNING) {
@@ -264,8 +255,6 @@ c2_status_t C2RKComponent::queue_nb(std::list<std::unique_ptr<C2Work>> * const i
         (new AMessage(WorkHandler::kWhatProcess, mHandler))->post();
     }
 
-    FunctionOut();
-
     return C2_OK;
 }
 
@@ -276,7 +265,7 @@ c2_status_t C2RKComponent::announce_nb(const std::vector<C2WorkOutline> &items) 
 
 c2_status_t C2RKComponent::flush_sm(
         flush_mode_t flushMode, std::list<std::unique_ptr<C2Work>>* const flushedWork) {
-    FunctionIn();
+    c2_log_func_enter();
 
     (void)flushMode;
     {
@@ -301,13 +290,13 @@ c2_status_t C2RKComponent::flush_sm(
         }
     }
 
-    FunctionOut();
+    c2_log_func_leave();
 
     return C2_OK;
 }
 
 c2_status_t C2RKComponent::drain_nb(drain_mode_t drainMode) {
-    FunctionIn();
+    c2_log_func_enter();
 
     if (drainMode == DRAIN_CHAIN) {
         return C2_OMITTED;
@@ -328,13 +317,13 @@ c2_status_t C2RKComponent::drain_nb(drain_mode_t drainMode) {
         (new AMessage(WorkHandler::kWhatProcess, mHandler))->post();
     }
 
-    FunctionOut();
+    c2_log_func_leave();
 
     return C2_OK;
 }
 
 c2_status_t C2RKComponent::start() {
-    FunctionIn();
+    c2_log_func_enter();
 
     Mutexed<ExecState>::Locked state(mExecState);
     if (state->mState == RUNNING) {
@@ -356,13 +345,14 @@ c2_status_t C2RKComponent::start() {
     state.lock();
     state->mState = RUNNING;
 
-    FunctionOut();
+    c2_log_func_leave();
 
     return C2_OK;
 }
 
 c2_status_t C2RKComponent::stop() {
-    c2_info("stop in");
+    c2_log_func_enter();
+
     {
         Mutexed<ExecState>::Locked state(mExecState);
         if (state->mState != RUNNING) {
@@ -387,11 +377,15 @@ c2_status_t C2RKComponent::stop() {
     if (err != C2_OK) {
         return (c2_status_t)err;
     }
+
+    c2_log_func_leave();
+
     return C2_OK;
 }
 
 c2_status_t C2RKComponent::reset() {
-    c2_info("reset in");
+    c2_log_func_enter();
+
     {
         Mutexed<ExecState>::Locked state(mExecState);
         state->mState = UNINITIALIZED;
@@ -412,7 +406,7 @@ c2_status_t C2RKComponent::reset() {
 }
 
 c2_status_t C2RKComponent::release() {
-    c2_info("release in");
+    c2_log_func_enter();
     sp<AMessage> reply;
     (new AMessage(WorkHandler::kWhatRelease, mHandler))->postAndAwaitResponse(&reply);
     return C2_OK;
@@ -654,7 +648,7 @@ bool C2RKComponent::processQueue() {
 
         queue.unlock();
         if (unexpected) {
-            c2_info_f("unexpected pending work");
+            c2_info("unexpected pending work");
             unexpected->result = C2_CORRUPTED;
             Mutexed<ExecState>::Locked state(mExecState);
             std::shared_ptr<C2Component::Listener> listener = state->mListener;

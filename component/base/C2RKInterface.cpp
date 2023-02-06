@@ -43,8 +43,6 @@ C2RKInterface<void>::BaseParams::BaseParams(
         C2String mediaType,
         std::vector<C2String> aliases)
     : C2InterfaceHelper(reflector) {
-    FunctionIn();
-
     setDerivedInstance(this);
 
     addParameter(
@@ -222,12 +220,9 @@ C2RKInterface<void>::BaseParams::BaseParams(
     std::shared_ptr<C2ConfigCounterTuning> mDirectConfigCounter;
 
     */
-   FunctionOut();
 }
 
 void C2RKInterface<void>::BaseParams::noInputLatency() {
-    FunctionIn();
-
     addParameter(
             DefineParam(mRequestedInputDelay, C2_PARAMKEY_INPUT_DELAY_REQUEST)
             .withConstValue(new C2PortRequestedDelayTuning::input(0u))
@@ -237,13 +232,9 @@ void C2RKInterface<void>::BaseParams::noInputLatency() {
             DefineParam(mActualInputDelay, C2_PARAMKEY_INPUT_DELAY)
             .withConstValue(new C2PortActualDelayTuning::input(0u))
             .build());
-
-    FunctionOut();
 }
 
 void C2RKInterface<void>::BaseParams::noOutputLatency() {
-    FunctionIn();
-
     addParameter(
             DefineParam(mRequestedOutputDelay, C2_PARAMKEY_OUTPUT_DELAY_REQUEST)
             .withConstValue(new C2PortRequestedDelayTuning::output(0u))
@@ -253,13 +244,9 @@ void C2RKInterface<void>::BaseParams::noOutputLatency() {
             DefineParam(mActualOutputDelay, C2_PARAMKEY_OUTPUT_DELAY)
             .withConstValue(new C2PortActualDelayTuning::output(0u))
             .build());
-
-    FunctionOut();
 }
 
 void C2RKInterface<void>::BaseParams::noPipelineLatency() {
-    FunctionIn();
-
     addParameter(
             DefineParam(mRequestedPipelineDelay, C2_PARAMKEY_PIPELINE_DELAY_REQUEST)
             .withConstValue(new C2RequestedPipelineDelayTuning(0u))
@@ -269,13 +256,9 @@ void C2RKInterface<void>::BaseParams::noPipelineLatency() {
             DefineParam(mActualPipelineDelay, C2_PARAMKEY_PIPELINE_DELAY)
             .withConstValue(new C2ActualPipelineDelayTuning(0u))
             .build());
-
-    FunctionOut();
 }
 
 void C2RKInterface<void>::BaseParams::noPrivateBuffers() {
-    FunctionIn();
-
     addParameter(
             DefineParam(mPrivateAllocators, C2_PARAMKEY_PRIVATE_ALLOCATORS)
             .withConstValue(C2PrivateAllocatorsTuning::AllocShared(0u))
@@ -290,13 +273,9 @@ void C2RKInterface<void>::BaseParams::noPrivateBuffers() {
             DefineParam(mPrivatePoolIds, C2_PARAMKEY_PRIVATE_BLOCK_POOLS)
             .withConstValue(C2PrivateBlockPoolsTuning::AllocShared(0u))
             .build());
-
-    FunctionOut();
 }
 
 void C2RKInterface<void>::BaseParams::noInputReferences() {
-    FunctionIn();
-
     addParameter(
             DefineParam(mMaxInputReferenceAge, C2_PARAMKEY_INPUT_MAX_REFERENCE_AGE)
             .withConstValue(new C2StreamMaxReferenceAgeTuning::input(0u))
@@ -306,13 +285,9 @@ void C2RKInterface<void>::BaseParams::noInputReferences() {
             DefineParam(mMaxInputReferenceCount, C2_PARAMKEY_INPUT_MAX_REFERENCE_COUNT)
             .withConstValue(new C2StreamMaxReferenceCountTuning::input(0u))
             .build());
-
-    FunctionOut();
 }
 
 void C2RKInterface<void>::BaseParams::noOutputReferences() {
-    FunctionIn();
-
     addParameter(
             DefineParam(mMaxOutputReferenceAge, C2_PARAMKEY_OUTPUT_MAX_REFERENCE_AGE)
             .withConstValue(new C2StreamMaxReferenceAgeTuning::output(0u))
@@ -322,19 +297,13 @@ void C2RKInterface<void>::BaseParams::noOutputReferences() {
             DefineParam(mMaxOutputReferenceCount, C2_PARAMKEY_OUTPUT_MAX_REFERENCE_COUNT)
             .withConstValue(new C2StreamMaxReferenceCountTuning::output(0u))
             .build());
-
-    FunctionOut();
 }
 
 void C2RKInterface<void>::BaseParams::noTimeStretch() {
-    FunctionIn();
-
     addParameter(
             DefineParam(mTimeStretch, C2_PARAMKEY_TIME_STRETCH)
             .withConstValue(new C2ComponentTimeStretchTuning(1.f))
             .build());
-
-    FunctionOut();
 }
 
 /*

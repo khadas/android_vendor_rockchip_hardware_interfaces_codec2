@@ -21,12 +21,13 @@
 #include <utils/Timers.h>
 
 
-#define C2_DUMP_TRACE_LOG                  (0x00000001)
-#define C2_DUMP_FPS_SHOW_INPUT             (0x00000002)
-#define C2_DUMP_FPS_SHOW_OUTPUT            (0x00000004)
+#define C2_DUMP_LOG_TRACE                   (0x00000001)
+#define C2_DUMP_LOG_DETAIL                  (0x00000002)
+#define C2_DUMP_FPS_SHOW_INPUT              (0x00000004)
+#define C2_DUMP_FPS_SHOW_OUTPUT             (0x00000008)
 
-#define C2_DUMP_RECORD_IN                  (0x00000010)
-#define C2_DUMP_RECORD_OUT                 (0x00000020)
+#define C2_DUMP_RECORD_IN                   (0x00000010)
+#define C2_DUMP_RECORD_OUT                  (0x00000020)
 
 
 enum C2RecRawType {
@@ -54,10 +55,10 @@ public:
 
     void showDebugFps(C2DumpRole role);
 
-    uint32_t getDumpFlag() { return mFlag; }
+    static uint32_t getDumpFlag() { return mFlag; }
 
 private:
-    uint32_t mFlag;
+    static uint32_t mFlag;
     bool mIsEncoder;
 
     FILE *mInFile;

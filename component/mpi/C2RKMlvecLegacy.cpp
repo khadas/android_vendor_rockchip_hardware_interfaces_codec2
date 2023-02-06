@@ -46,7 +46,7 @@ bool C2RKMlvecLegacy::setupMaxTid(int32_t maxTid) {
     memset(ltRef, 0, sizeof(ltRef));
     memset(stRef, 0, sizeof(stRef));
 
-    c2_info_f("max_tid %d numLtrFrms %d ", maxTid, numLtrFrms);
+    c2_info("max_tid %d numLtrFrms %d ", maxTid, numLtrFrms);
 
     switch (maxTid) {
     case 1: {
@@ -58,7 +58,7 @@ bool C2RKMlvecLegacy::setupMaxTid(int32_t maxTid) {
 
         stCfgCnt = 1;
         tid0Loop = 1;
-        c2_info_f("no tsvc");
+        c2_info("no tsvc");
     } break;
     case 2: {
         /* set tsvc2 st-ref struct */
@@ -83,7 +83,7 @@ bool C2RKMlvecLegacy::setupMaxTid(int32_t maxTid) {
 
         stCfgCnt = 3;
         tid0Loop = 2;
-        c2_info_f("tsvc2");
+        c2_info("tsvc2");
     } break;
     case 3: {
         /* set tsvc3 st-ref struct */
@@ -120,7 +120,7 @@ bool C2RKMlvecLegacy::setupMaxTid(int32_t maxTid) {
 
         stCfgCnt = 5;
         tid0Loop = 4;
-        c2_info_f("tsvc3");
+        c2_info("tsvc3");
     } break;
     case 4: {
         /* set tsvc3 st-ref struct */
@@ -181,7 +181,7 @@ bool C2RKMlvecLegacy::setupMaxTid(int32_t maxTid) {
 
         stCfgCnt = 9;
         tid0Loop = 8;
-        c2_info_f("tsvc4");
+        c2_info("tsvc4");
     } break;
     default : {
         c2_err("invalid max temporal layer id %d", maxTid);
@@ -201,7 +201,7 @@ bool C2RKMlvecLegacy::setupMaxTid(int32_t maxTid) {
         }
     }
 
-    c2_info_f("ltCfgCnt %d stCfgCnt %d", ltCfgCnt, stCfgCnt);
+    c2_info("ltCfgCnt %d stCfgCnt %d", ltCfgCnt, stCfgCnt);
     if (ltCfgCnt || stCfgCnt) {
         MppEncRefCfg ref = nullptr;
 
@@ -292,7 +292,7 @@ bool C2RKMlvecLegacy::setupDynamicConfig(MDynamicCfg *cfg, MppMeta meta) {
         cfg->updated = 0;
     }
 
-    c2_info_f("ltr mark %2d use %2d frm qp %2d blpid %d", dst->markLtr,
+    c2_info("ltr mark %2d use %2d frm qp %2d blpid %d", dst->markLtr,
               dst->useLtr, dst->frameQP, dst->baseLayerPid);
 
     /* setup next frame configure */

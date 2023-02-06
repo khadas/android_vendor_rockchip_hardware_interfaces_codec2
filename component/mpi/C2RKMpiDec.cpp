@@ -23,6 +23,7 @@
 #include <Codec2Mapper.h>
 #include <ui/GraphicBufferMapper.h>
 #include <gralloc_priv_omx.h>
+#include <sys/syscall.h>
 
 #include "hardware/hardware_rockchip.h"
 #include "hardware/gralloc_rockchip.h"
@@ -35,7 +36,6 @@
 #include "C2RKColorAspects.h"
 #include "C2RKVersion.h"
 #include "C2RKEnv.h"
-#include <sys/syscall.h>
 
 namespace android {
 
@@ -534,9 +534,6 @@ C2RKMpiDec::C2RKMpiDec(
       mSignalledError(false),
       mLowLatencyMode(false),
       mBufferMode(false) {
-    c2_info("version: %s", C2_GIT_BUILD_VERSION);
-    c2_log_init();
-
     if (!C2RKMediaUtils::getCodingTypeFromComponentName(name, &mCodingType)) {
         c2_err("failed to get codingType from component %s", name);
     }
@@ -549,20 +546,22 @@ C2RKMpiDec::C2RKMpiDec(
     if (grallocVersion > 3 && androidVersion >= 30) {
         mGrallocVersion = 4;
     }
+
+    c2_info("component name: %s\r\nversion: %s", name, C2_GIT_BUILD_VERSION);
 }
 
 C2RKMpiDec::~C2RKMpiDec() {
-    c2_info_f("in");
+    c2_log_func_enter();
     onRelease();
 }
 
 c2_status_t C2RKMpiDec::onInit() {
-    c2_info_f("in");
+    c2_log_func_enter();
     return C2_OK;
 }
 
 c2_status_t C2RKMpiDec::onStop() {
-    c2_info_f("in");
+    c2_log_func_enter();
     if (!mFlushed) {
         return onFlush_sm();
     }
@@ -571,12 +570,12 @@ c2_status_t C2RKMpiDec::onStop() {
 }
 
 void C2RKMpiDec::onReset() {
-    c2_info_f("in");
+    c2_log_func_enter();
     onStop();
 }
 
 void C2RKMpiDec::onRelease() {
-    c2_info_f("in");
+    c2_log_func_enter();
 
     mStarted = false;
 
@@ -607,7 +606,7 @@ void C2RKMpiDec::onRelease() {
 c2_status_t C2RKMpiDec::onFlush_sm() {
     c2_status_t ret = C2_OK;
 
-    c2_info_f("in");
+    c2_log_func_enter();
 
     mOutputEos = false;
     mSignalledInputEos = false;
@@ -632,7 +631,7 @@ c2_status_t C2RKMpiDec::onFlush_sm() {
 c2_status_t C2RKMpiDec::initDecoder() {
     MPP_RET err = MPP_OK;
 
-    c2_info_f("in");
+    c2_log_func_enter();
 
     {
         IntfImpl::Lock lock = mIntf->lock();
@@ -749,7 +748,7 @@ c2_status_t C2RKMpiDec::initDecoder() {
     if (!mBufferMode) {
         err = mpp_buffer_group_get_external(&mFrmGrp, MPP_BUFFER_TYPE_ION);
         if (err != MPP_OK) {
-            c2_err_f("failed to get buffer_group, err %d", err);
+            c2_err("failed to get buffer_group, err %d", err);
             goto error;
         }
         mMppMpi->control(mMppCtx, MPP_DEC_SET_EXT_BUF_GROUP, mFrmGrp);
@@ -762,7 +761,6 @@ c2_status_t C2RKMpiDec::initDecoder() {
                                        &mFbcCfg.paddingY);
         c2_info("fbc padding offset(%d, %d)", mFbcCfg.paddingX, mFbcCfg.paddingY);
     }
-
 
     // init dump object
     mDump->initDump(mHorStride, mVerStride, false);
@@ -783,7 +781,7 @@ error:
 void C2RKMpiDec::fillEmptyWork(const std::unique_ptr<C2Work> &work) {
     uint32_t flags = 0;
 
-    c2_trace_f("in");
+    c2_trace_func_enter();
 
     if (work->input.flags & C2FrameData::FLAG_END_OF_STREAM) {
         flags |= C2FrameData::FLAG_END_OF_STREAM;
@@ -846,7 +844,7 @@ c2_status_t C2RKMpiDec::drainInternal(
         uint32_t drainMode,
         const std::shared_ptr<C2BlockPool> &pool,
         const std::unique_ptr<C2Work> &work) {
-    c2_info_f("in");
+    c2_log_func_enter();
 
     if (drainMode == NO_DRAIN) {
         c2_warn("drain with NO_DRAIN: no-op");
@@ -875,7 +873,7 @@ c2_status_t C2RKMpiDec::drainInternal(
         if (ret == C2_OK && entry.outblock) {
             finishWork(&entry);
         } else if (drainMode == DRAIN_COMPONENT_NO_EOS && !work) {
-            c2_info_f("drain without wait eos, done.");
+            c2_info("drain without wait eos, done.");
             break;
         }
 
@@ -892,7 +890,7 @@ c2_status_t C2RKMpiDec::drainInternal(
         }
     }
 
-    c2_info_f("out");
+    c2_log_func_leave();
 
     return C2_OK;
 }
@@ -1175,7 +1173,7 @@ REDO:
          */
         err = mMppMpi->control(mMppCtx, MPP_DEC_SET_INFO_CHANGE_READY, nullptr);
         if (err) {
-            c2_err_f("failed to set info-change ready, ret %d", ret);
+            c2_err("failed to set info-change ready, ret %d", ret);
             ret = C2_CORRUPTED;
             goto exit;
         }
@@ -1258,7 +1256,7 @@ REDO:
         }
 
         /* dump output data if neccessary */
-        if (mDump->getDumpFlag() & C2_DUMP_RECORD_OUT) {
+        if (C2RKDump::getDumpFlag() & C2_DUMP_RECORD_OUT) {
             void *data = mpp_buffer_get_ptr(mppBuffer);
             mDump->recordOutFile(data, hstride, vstride, RAW_TYPE_YUV420SP);
         }
@@ -1283,7 +1281,7 @@ exit:
 
 c2_status_t C2RKMpiDec::commitBufferToMpp(std::shared_ptr<C2GraphicBlock> block) {
     if (!block.get()) {
-        c2_err_f("failed to get block");
+        c2_err("failed to get block");
         return C2_CORRUPTED;
     }
 
@@ -1508,7 +1506,6 @@ public:
             c2_node_id_t id,
             std::shared_ptr<C2Component>* const component,
             std::function<void(C2Component*)> deleter) override {
-        c2_trace_f("in");
         *component = std::shared_ptr<C2Component>(
                 new C2RKMpiDec(
                         mComponentName.c_str(),
@@ -1523,7 +1520,6 @@ public:
             c2_node_id_t id,
             std::shared_ptr<C2ComponentInterface>* const interface,
             std::function<void(C2ComponentInterface*)> deleter) override {
-        c2_trace_f("in");
         *interface = std::shared_ptr<C2ComponentInterface>(
                 new C2RKInterface<C2RKMpiDec::IntfImpl>(
                         mComponentName.c_str(),
@@ -1545,7 +1541,6 @@ private:
 };
 
 C2ComponentFactory* CreateRKMpiDecFactory(std::string componentName) {
-    c2_trace_f("in");
     return new ::android::C2RKMpiDecFactory(componentName);
 }
 

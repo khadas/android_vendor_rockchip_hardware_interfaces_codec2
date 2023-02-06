@@ -14,49 +14,50 @@
  * limitations under the License.
  */
 
+#include <stdio.h>
 #include <string.h>
 #include <android/log.h>
+
 #include "C2RKLog.h"
-#include "C2RKEnv.h"
+#include "C2RKDump.h"
 
-static uint32_t envValue = 0;
-void _Rockchip_C2_Log_Init() {
-    Rockchip_C2_GetEnvU32("vendor.c2.log.debug", &envValue, 0);
-}
+#define MAX_LINE_LEN  256
 
-
-void _Rockchip_C2_Log(ROCKCHIP_LOG_LEVEL logLevel, uint32_t flag, const char *tag, const char *msg, ...)
-{
-    va_list argptr;
-
-    va_start(argptr, msg);
-
-    switch (logLevel) {
-    case ROCKCHIP_LOG_TRACE: {
-        if (envValue & C2_TRACE_ON) {
-            __android_log_vprint(ANDROID_LOG_DEBUG, tag, msg, argptr);
-        }
-    }
-    break;
-    case ROCKCHIP_LOG_DEBUG: {
-        if (envValue & flag) {
-            __android_log_vprint(ANDROID_LOG_DEBUG, tag, msg, argptr);
+uint32_t getALogLevel(uint32_t level) {
+    switch (level) {
+    case C2_LOG_TRACE: {
+        if (C2RKDump::getDumpFlag() & C2_DUMP_LOG_TRACE) {
+            return ANDROID_LOG_DEBUG;
         }
     } break;
-    case ROCKCHIP_LOG_INFO:
-        __android_log_vprint(ANDROID_LOG_INFO, tag, msg, argptr);
-        break;
-    case ROCKCHIP_LOG_WARNING:
-        __android_log_vprint(ANDROID_LOG_WARN, tag, msg, argptr);
-        break;
-    case ROCKCHIP_LOG_ERROR:
-        __android_log_vprint(ANDROID_LOG_ERROR, tag, msg, argptr);
-        break;
-    default:
-        __android_log_vprint(ANDROID_LOG_VERBOSE, tag, msg, argptr);
+    case C2_LOG_DEBUG:      return ANDROID_LOG_DEBUG;
+    case C2_LOG_INFO:       return ANDROID_LOG_INFO;
+    case C2_LOG_WARNING:    return ANDROID_LOG_WARN;
+    case C2_LOG_ERROR:      return ANDROID_LOG_ERROR;
     }
 
-    va_end(argptr);
+    return ANDROID_LOG_UNKNOWN;
 }
 
+void _c2_log(uint32_t level, const char *tag, const char *fmt,
+             const char *fname, const uint32_t row, ...) {
+    uint32_t ALevel = getALogLevel(level);
 
+    if (ALevel == ANDROID_LOG_UNKNOWN) {
+        return;
+    }
+
+    va_list args;
+    va_start(args, row);
+
+    if (C2RKDump::getDumpFlag() & C2_DUMP_LOG_DETAIL) {
+        char line[MAX_LINE_LEN];
+        snprintf(line, sizeof(line), "{%-16.16s:%04d} %s\r\n", fname, row, fmt);
+
+        __android_log_vprint(ALevel, tag, line, args);
+    } else {
+        __android_log_vprint(ALevel, tag, fmt, args);
+    }
+
+    va_end(args);
+}

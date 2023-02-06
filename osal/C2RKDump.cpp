@@ -28,6 +28,8 @@
 
 #define  C2_RECORD_DIR   "/data/video/"
 
+uint32_t C2RKDump::mFlag = 0;
+
 const char *toStr_DumpRole(uint32_t role) {
     switch (role) {
         case DUMP_ROLE_INPUT:       return "input";
@@ -173,7 +175,7 @@ void C2RKDump::showDebugFps(C2DumpRole role) {
         fps = ((mFrameCount[role] - mLastFrameCount[role]) * float(s2ns(1))) / diff;
         mLastFpsTime[role] = now;
         mLastFrameCount[role] = mFrameCount[role];
-        c2_info("%s %s frameCount %d fps = %2.3f", mIsEncoder ? "enc" : "dec",
+        c2_info("[%s] %s frameCount %d fps = %2.3f", mIsEncoder ? "enc" : "dec",
                 toStr_DumpRole(role), mFrameCount[role], fps);
     }
 }
