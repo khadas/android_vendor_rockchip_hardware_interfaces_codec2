@@ -1034,7 +1034,7 @@ outframe:
         goto outframe;
     } else if (outfrmCnt == 0) {
         usleep(1000);
-        if (mLowLatencyMode && timestamp > 0) {
+        if (mLowLatencyMode && flags == 0) {
             goto outframe;
         }
     }
