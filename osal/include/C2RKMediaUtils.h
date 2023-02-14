@@ -92,6 +92,11 @@ public:
     static int32_t colorFormatMpiToAndroid(uint32_t format, bool fbcMode);
     static uint64_t getStrideUsage(int32_t width, int32_t stride);
     static uint32_t calculateOutputDelay(int32_t width, int32_t height, MppCodingType type, int32_t level);
+    static bool isP010Allowed();
+    static void convert10BitNV12ToP010(
+                uint8_t *dstY, uint8_t *dstUV, size_t dstYStride,
+                size_t dstUVStride, uint8_t *src, size_t hstride,
+                size_t vstride, size_t width, size_t height);
 };
 
 #endif  // ANDROID_C2_RK_MEDIA_UTILS_H_

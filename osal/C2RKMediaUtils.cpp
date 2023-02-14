@@ -24,6 +24,7 @@
 #include "hardware/gralloc_rockchip.h"
 #include "C2RKMediaUtils.h"
 #include "C2RKLog.h"
+#include "C2RKEnv.h"
 #include "mpp/mpp_soc.h"
 
 using namespace android;
@@ -257,3 +258,72 @@ uint32_t C2RKMediaUtils::calculateOutputDelay(
     return outputDelay;
 }
 
+bool C2RKMediaUtils::isP010Allowed() {
+    // The first SDK the device shipped with.
+    uint32_t productFirstApiLevel;
+    Rockchip_C2_GetEnvU32("ro.product.first_api_level", &productFirstApiLevel, 0);
+
+    // GRF devices (introduced in Android 11) list the first and possibly the current api levels
+    // to signal which VSR requirements they conform to even if the first device SDK was higher.
+    uint32_t boardFirstApiLevel;
+    Rockchip_C2_GetEnvU32("ro.board.first_api_level", &boardFirstApiLevel, 0);
+
+    // Some devices that launched prior to Android S may not support P010 correctly, even
+    // though they may advertise it as supported.
+    if (productFirstApiLevel != 0 && productFirstApiLevel < 31) {
+        return false;
+    }
+
+    if (boardFirstApiLevel != 0 && boardFirstApiLevel < 31) {
+        return false;
+    }
+
+    uint32_t boardApiLevel;
+    Rockchip_C2_GetEnvU32("ro.board.api_level", &boardApiLevel, 0);
+    // For non-GRF devices, use the first SDK version by the product.
+    uint32_t kFirstApiLevel =
+        boardApiLevel != 0 ? boardApiLevel :
+        boardFirstApiLevel != 0 ? boardFirstApiLevel :
+        productFirstApiLevel;
+
+    return kFirstApiLevel >= 33;
+}
+
+void C2RKMediaUtils::convert10BitNV12ToP010(
+        uint8_t *dstY, uint8_t *dstUV, size_t dstYStride,
+        size_t dstUVStride, uint8_t *src, size_t hstride,
+        size_t vstride, size_t width, size_t height) {
+    uint32_t i, k;
+    uint8_t *base_y = src;
+    uint8_t *base_uv = src + hstride * vstride;
+    for (i = 0; i < height; i++, base_y += hstride, dstY += dstYStride) {
+        for (k = 0; k < (width + 7) / 8; k++) {
+            uint16_t *pix = (uint16_t *)(dstY + k * 16);
+            uint16_t *base_u16 = (uint16_t *)(base_y + k * 10);
+
+            pix[0] =  (base_u16[0] & 0x03FF) << 6;
+            pix[1] = ((base_u16[0] & 0xFC00) >> 10 | (base_u16[1] & 0x000F) << 6) << 6;
+            pix[2] = ((base_u16[1] & 0x3FF0) >> 4) << 6;
+            pix[3] = ((base_u16[1] & 0xC000) >> 14 | (base_u16[2] & 0x00FF) << 2) << 6;
+            pix[4] = ((base_u16[2] & 0xFF00) >> 8  | (base_u16[3] & 0x0003) << 8) << 6;
+            pix[5] = ((base_u16[3] & 0x0FFC) >> 2) << 6;
+            pix[6] = ((base_u16[3] & 0xF000) >> 12 | (base_u16[4] & 0x003F) << 4) << 6;
+            pix[7] = ((base_u16[4] & 0xFFC0) >> 6) << 6;
+        }
+    }
+    for (i = 0; i < height / 2; i++, base_uv += hstride, dstUV += dstUVStride) {
+        for (k = 0; k < (width + 7) / 8; k++) {
+            uint16_t *pix = (uint16_t *)(dstUV + k * 16);
+            uint16_t *base_u16 = (uint16_t *)(base_uv + k * 10);
+
+            pix[0] =  (base_u16[0] & 0x03FF) << 6;
+            pix[1] = ((base_u16[0] & 0xFC00) >> 10 | (base_u16[1] & 0x000F) << 6) << 6;
+            pix[2] = ((base_u16[1] & 0x3FF0) >> 4) << 6;
+            pix[3] = ((base_u16[1] & 0xC000) >> 14 | (base_u16[2] & 0x00FF) << 2) << 6;
+            pix[4] = ((base_u16[2] & 0xFF00) >> 8  | (base_u16[3] & 0x0003) << 8) << 6;
+            pix[5] = ((base_u16[3] & 0x0FFC) >> 2) << 6;
+            pix[6] = ((base_u16[3] & 0xF000) >> 12 | (base_u16[4] & 0x003F) << 4) << 6;
+            pix[7] = ((base_u16[4] & 0xFFC0) >> 6) << 6;
+        }
+    }
+}

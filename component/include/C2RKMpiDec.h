@@ -95,6 +95,8 @@ private:
     uint32_t mPrimaries;
     uint32_t mTransfer;
     uint32_t mRange;
+    uint32_t mProfile;
+    uint32_t mHalPixelFormat;
     int64_t  mLastPts;
     uint32_t mGeneration;
 
@@ -114,7 +116,6 @@ private:
     */
     bool mBufferMode;
 
-    uint32_t mProfile;
     struct FbcConfig {
         uint32_t mode;
         // fbc decode output padding

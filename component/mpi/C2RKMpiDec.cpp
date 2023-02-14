@@ -99,11 +99,18 @@ public:
                 .withSetter(BlockSizeSetter)
                 .build());
 
+        std::vector<uint32_t> pixelFormats = { HAL_PIXEL_FORMAT_YCBCR_420_888 };
+        if (C2RKMediaUtils::isP010Allowed()) {
+            pixelFormats.push_back(HAL_PIXEL_FORMAT_YCBCR_P010);
+        }
+
         // TODO: support more formats?
         addParameter(
                 DefineParam(mPixelFormat, C2_PARAMKEY_PIXEL_FORMAT)
-                .withConstValue(new C2StreamPixelFormatInfo::output(
+                .withDefault(new C2StreamPixelFormatInfo::output(
                                     0u, HAL_PIXEL_FORMAT_YCBCR_420_888))
+                .withFields({C2F(mPixelFormat, value).oneOf(pixelFormats)})
+                .withSetter((Setter<decltype(*mPixelFormat)>::StrictValueWithNoDeps))
                 .build());
 
         // profile and level
@@ -488,6 +495,10 @@ public:
         return mProfileLevel;
     }
 
+    std::shared_ptr<C2StreamPixelFormatInfo::output> getPixelFormat_l() const {
+        return mPixelFormat;
+    }
+
 private:
     std::shared_ptr<C2StreamPictureSizeInfo::output> mSize;
     std::shared_ptr<C2StreamMaxPictureSizeTuning::output> mMaxSize;
@@ -658,6 +669,7 @@ c2_status_t C2RKMpiDec::initDecoder(const std::unique_ptr<C2Work> &work) {
         mPrimaries = (uint32_t)mIntf->getDefaultColorAspects_l()->primaries;
         mTransfer = (uint32_t)mIntf->getDefaultColorAspects_l()->transfer;
         mRange = (uint32_t)mIntf->getDefaultColorAspects_l()->range;
+        mHalPixelFormat = mIntf->getPixelFormat_l()->value;
         if (mIntf->getLowLatency_l() != nullptr) {
             mLowLatencyMode = (mIntf->getLowLatency_l()->value > 0) ? true : false ;
         }
@@ -716,6 +728,15 @@ c2_status_t C2RKMpiDec::initDecoder(const std::unique_ptr<C2Work> &work) {
 
     {
         MppFrame frame  = nullptr;
+
+        if (mProfile == PROFILE_AVC_HIGH_10 ||
+            mProfile == PROFILE_HEVC_MAIN_10 ||
+            (mBufferMode && mHalPixelFormat == HAL_PIXEL_FORMAT_YCBCR_P010)) {
+            c2_info("setup 10Bit format with profile %d halPixelFmt %d",
+                    mProfile, mHalPixelFormat);
+            mColorFormat = MPP_FMT_YUV420SP_10BIT;
+        }
+
         uint32_t mppFmt = mColorFormat;
 
         if (checkPreferFbcOutput(work)) {
@@ -804,8 +825,9 @@ bool C2RKMpiDec::checkPreferFbcOutput(const std::unique_ptr<C2Work> &work) {
         return false;
     }
 
-    if (!mBufferMode && (mWidth * mHeight > 2304 * 1080)) {
-        return true;
+    if (mBufferMode) {
+        c2_info("fbc do not suppport in buffermode, perfer non-fbc mode");
+        return false;
     }
 
     /* SMPTEST2084 = 6 */
@@ -835,6 +857,10 @@ bool C2RKMpiDec::checkPreferFbcOutput(const std::unique_ptr<C2Work> &work) {
                 }
             }
         }
+    }
+
+    if (mWidth * mHeight > 2304 * 1080) {
+        return true;
     }
 
     return false;
@@ -1283,7 +1309,7 @@ REDO:
     if (MPP_OK != err || !frame) {
         if (needGetFrame == true && tryCount < 10) {
             c2_info("need to get frame");
-            usleep(5*1000);
+            usleep(5 * 1000);
             goto REDO;
         }
         return C2_NOT_FOUND;
@@ -1346,8 +1372,22 @@ REDO:
         }
 
         if (mBufferMode) {
-            // copy mppBuffer to output mOutBlock in buffer mode
-            copyOutputBuffer(mppBuffer);
+            if (mHalPixelFormat == HAL_PIXEL_FORMAT_YCBCR_P010) {
+                C2GraphicView wView = mOutBlock->map().get();
+                C2PlanarLayout layout = wView.layout();
+                uint8_t *src = (uint8_t*)mpp_buffer_get_ptr(mppBuffer);
+                uint8_t *dstY = const_cast<uint8_t *>(wView.data()[C2PlanarLayout::PLANE_Y]);
+                uint8_t *dstUV = const_cast<uint8_t *>(wView.data()[C2PlanarLayout::PLANE_U]);
+                size_t dstYStride = layout.planes[C2PlanarLayout::PLANE_Y].rowInc;
+                size_t dstUVStride = layout.planes[C2PlanarLayout::PLANE_U].rowInc;
+
+                C2RKMediaUtils::convert10BitNV12ToP010(
+                        dstY, dstUV, dstYStride, dstUVStride,
+                        src, hstride, vstride, width, height);
+            } else {
+                // copy mppBuffer to output mOutBlock in buffer mode
+                copyOutputBuffer(mppBuffer);
+            }
             outblock = mOutBlock;
         } else {
             OutBuffer *outBuffer = findOutBuffer(mppBuffer);
@@ -1518,6 +1558,10 @@ c2_status_t C2RKMpiDec::ensureDecoderState(
     uint64_t usage  = RK_GRALLOC_USAGE_SPECIFY_STRIDE;
     uint32_t format = C2RKMediaUtils::colorFormatMpiToAndroid(mColorFormat, mFbcCfg.mode);
 
+    if (mBufferMode && mHalPixelFormat == HAL_PIXEL_FORMAT_YCBCR_P010) {
+        format = HAL_PIXEL_FORMAT_YCBCR_P010;
+    }
+
     std::lock_guard<std::mutex> lock(mPoolMutex);
 
     // workround for tencent-video, the application can not deal with crop
@@ -1593,6 +1637,7 @@ c2_status_t C2RKMpiDec::ensureDecoderState(
             mOutBlock.reset();
         }
         if (!mOutBlock) {
+            usage |= (GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN);
             ret = pool->fetchGraphicBlock(blockW, blockH, format,
                                           C2AndroidMemoryUsage::FromGrallocUsage(usage),
                                           &mOutBlock);
