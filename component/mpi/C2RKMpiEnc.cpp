@@ -2276,8 +2276,7 @@ c2_status_t C2RKMpiEnc::getInBufferFromWork(
          * copy input buffer to anothor larger dmaBuffer, and than import
          * this dmaBuffer to encoder.
          */
-        if (((mChipType != RK_CHIP_3588) && ((stride & 0xf) || (height & 0xf)))
-            || ((mChipType == RK_CHIP_3588) && ((stride & 0xf) || (height & 0x2)))) {
+        if (((mChipType != RK_CHIP_3588) && ((stride & 0xf) || (height & 0xf)))) {
             RgaParam src, dst;
 
             C2RKRgaDef::paramInit(&src, fd, width, height, stride, height);
