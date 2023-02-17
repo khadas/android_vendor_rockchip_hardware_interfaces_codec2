@@ -911,7 +911,7 @@ C2RKMpiEnc::C2RKMpiEnc(
       mIntf(intfImpl),
       mDmaMem(nullptr),
       mMlvec(nullptr),
-      mDump(new C2RKDump),
+      mDump(nullptr),
       mMppCtx(nullptr),
       mMppMpi(nullptr),
       mEncCfg(nullptr),
@@ -1720,6 +1720,8 @@ c2_status_t C2RKMpiEnc::initEncoder() {
         goto error;
     }
 
+    if (!mDump)
+        mDump = new C2RKDump();
     // init dump object.
     mDump->initDump(mSize->width, mSize->height, true);
 

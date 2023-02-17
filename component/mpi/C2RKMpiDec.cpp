@@ -512,7 +512,7 @@ C2RKMpiDec::C2RKMpiDec(
         const std::shared_ptr<IntfImpl> &intfImpl)
     : C2RKComponent(std::make_shared<C2RKInterface<IntfImpl>>(name, id, intfImpl)),
       mIntf(intfImpl),
-      mDump(new C2RKDump),
+      mDump(nullptr),
       mMppCtx(nullptr),
       mMppMpi(nullptr),
       mCodingType(MPP_VIDEO_CodingUnused),
@@ -762,6 +762,8 @@ c2_status_t C2RKMpiDec::initDecoder() {
         c2_info("fbc padding offset(%d, %d)", mFbcCfg.paddingX, mFbcCfg.paddingY);
     }
 
+    if (!mDump)
+        mDump = new C2RKDump();
     // init dump object
     mDump->initDump(mHorStride, mVerStride, false);
 
