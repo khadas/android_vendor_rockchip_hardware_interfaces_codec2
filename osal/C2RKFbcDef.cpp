@@ -160,6 +160,11 @@ static const C2FbcInfo FbcInfos[] = {
         3, fbcCaps_rk356x,
     },
     {
+        "rk3528",
+        RK_CHIP_3528,
+        3, fbcCaps_rk3588,
+    },
+    {
         "rk3588",
         RK_CHIP_3588,
         3, fbcCaps_rk3588,
