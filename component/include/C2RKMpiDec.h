@@ -103,6 +103,7 @@ private:
     bool mOutputEos;
     bool mSignalledInputEos;
     bool mSignalledError;
+    bool mSizeInfoUpdate;
     bool mLowLatencyMode;
     bool mGraphicBufferSource;
     bool mScaleEnabled;

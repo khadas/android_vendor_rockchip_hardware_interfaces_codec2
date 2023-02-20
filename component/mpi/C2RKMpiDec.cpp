@@ -526,6 +526,7 @@ C2RKMpiDec::C2RKMpiDec(
       mOutputEos(false),
       mSignalledInputEos(false),
       mSignalledError(false),
+      mSizeInfoUpdate(false),
       mLowLatencyMode(false),
       mGraphicBufferSource(false),
       mScaleEnabled(false),
@@ -929,6 +930,13 @@ void C2RKMpiDec::finishWork(OutWorkEntry *entry) {
     outputWork->input.ordinal.customOrdinal = 0;
     outputWork->result = C2_OK;
 
+    if (mSizeInfoUpdate) {
+        c2_info("update new size %dx%d config to framework.", mWidth, mHeight);
+        C2StreamPictureSizeInfo::output size(0u, mWidth, mHeight);
+        outputWork->worklets.front()->output.configUpdate.push_back(C2Param::Copy(size));
+        mSizeInfoUpdate = false;
+    }
+
     finish(outputWork, fillWork);
 }
 
@@ -1112,14 +1120,11 @@ outframe:
         }
         goto outframe;
     } else if (err == C2_NO_MEMORY) {
-        // update new config and feekback to framework
+        // update new size config.
         C2StreamPictureSizeInfo::output size(0u, mWidth, mHeight);
         std::vector<std::unique_ptr<C2SettingResult>> failures;
         err = mIntf->config({&size}, C2_MAY_BLOCK, &failures);
-        if (err == OK) {
-            work->worklets.front()->output.configUpdate.push_back(
-                C2Param::Copy(size));
-        } else {
+        if (err != OK) {
             c2_err("failed to set width and height");
             mSignalledError = true;
             work->workletsProcessed = 1u;
@@ -1132,6 +1137,8 @@ outframe:
             return;
         }
         ensureDecoderState(pool);
+        // feekback config update to first output frame.
+        mSizeInfoUpdate = true;
         goto outframe;
     } else if (outfrmCnt == 0) {
         usleep(1000);
