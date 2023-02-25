@@ -1651,7 +1651,6 @@ c2_status_t C2RKMpiEnc::initEncoder() {
         mVerStride = C2_ALIGN(mSize->height, 8);
     }
 
-
     /*
      * create vpumem for mpp input
      *
@@ -2417,7 +2416,6 @@ c2_status_t C2RKMpiEnc::getoutpacket(OutWorkEntry *entry) {
         size_t   len = mpp_packet_get_length(packet);
         uint32_t eos = mpp_packet_get_eos(packet);
         void   *data = mpp_packet_get_data(packet);
-
 
         mOutputCount++;
         c2_trace("get outpacket pts %lld size %d eos %d", pts, len, eos);

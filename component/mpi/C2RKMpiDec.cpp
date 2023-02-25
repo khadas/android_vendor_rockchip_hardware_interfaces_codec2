@@ -707,11 +707,12 @@ c2_status_t C2RKMpiDec::initDecoder() {
             if (mFbcCfg.mode) {
                 c2_info("use mpp fbc output mode");
                 mppFmt |= MPP_FRAME_FBC_AFBC_V2;
-                mMppMpi->control(mMppCtx, MPP_DEC_SET_OUTPUT_FORMAT, (MppParam)&mppFmt);
             }
         } else {
             mFbcCfg.mode = 0;
         }
+
+        mMppMpi->control(mMppCtx, MPP_DEC_SET_OUTPUT_FORMAT, (MppParam)&mppFmt);
 
         mpp_frame_init(&frame);
         mpp_frame_set_width(frame, mWidth);
