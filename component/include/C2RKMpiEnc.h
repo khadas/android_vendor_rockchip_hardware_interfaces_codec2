@@ -68,6 +68,9 @@ private:
     C2RKMlvecLegacy *mMlvec;
     C2RKDump *mDump;
 
+    // output buffer block
+    std::shared_ptr<C2LinearBlock> mOutputBlock;
+
     /* MPI interface parameters */
     MppCtx         mMppCtx;
     MppApi        *mMppMpi;
