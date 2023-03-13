@@ -763,10 +763,11 @@ c2_status_t C2RKMpiDec::initDecoder() {
         c2_info("fbc padding offset(%d, %d)", mFbcCfg.paddingX, mFbcCfg.paddingY);
     }
 
-    if (!mDump)
+    if (!mDump) {
+        // init dump object
         mDump = new C2RKDump();
-    // init dump object
-    mDump->initDump(mHorStride, mVerStride, false);
+        mDump->initDump(mHorStride, mVerStride, false);
+    }
 
     mStarted = true;
 

@@ -92,8 +92,10 @@ private:
 
     // configurations used by component in process
     // (TODO: keep this in intf but make them internal only)
+    uint32_t mProfile;
     std::shared_ptr<C2StreamPictureSizeInfo::input> mSize;
     std::shared_ptr<C2StreamBitrateInfo::output> mBitrate;
+    std::shared_ptr<C2StreamFrameRateInfo::output> mFrameRate;
 
     void fillEmptyWork(const std::unique_ptr<C2Work> &work);
     void finishWork(
@@ -119,6 +121,7 @@ private:
     c2_status_t initEncoder();
     c2_status_t releaseEncoder();
 
+    c2_status_t handleCommonDynamicCfg();
     c2_status_t handleRequestSyncFrame();
     c2_status_t handleMlvecDynamicCfg(MppMeta meta);
 

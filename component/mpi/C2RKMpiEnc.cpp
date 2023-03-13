@@ -974,6 +974,14 @@ c2_status_t C2RKMpiEnc::onFlush_sm() {
 }
 
 c2_status_t C2RKMpiEnc::setupBaseCodec() {
+    /* default stride */
+    mHorStride = C2_ALIGN(mSize->width, 16);
+    if (mCodingType == MPP_VIDEO_CodingVP8) {
+        mVerStride = C2_ALIGN(mSize->height, 16);
+    } else {
+        mVerStride = C2_ALIGN(mSize->height, 8);
+    }
+
     c2_info("setupBaseCodec: coding %d w %d h %d hor %d ver %d",
             mCodingType, mSize->width, mSize->height, mHorStride, mVerStride);
 
@@ -1641,14 +1649,8 @@ c2_status_t C2RKMpiEnc::initEncoder() {
         IntfImpl::Lock lock = mIntf->lock();
         mSize = mIntf->getSize_l();
         mBitrate = mIntf->getBitrate_l();
-    }
-
-    /* default stride */
-    mHorStride = C2_ALIGN(mSize->width, 16);
-    if (mCodingType == MPP_VIDEO_CodingVP8) {
-        mVerStride = C2_ALIGN(mSize->height, 16);
-    } else {
-        mVerStride = C2_ALIGN(mSize->height, 8);
+        mFrameRate = mIntf->getFrameRate_l();
+        mProfile = mIntf->getProfile_l(mCodingType);
     }
 
     /*
@@ -1719,10 +1721,11 @@ c2_status_t C2RKMpiEnc::initEncoder() {
         goto error;
     }
 
-    if (!mDump)
+    if (!mDump) {
+        // init dump object.
         mDump = new C2RKDump();
-    // init dump object.
-    mDump->initDump(mSize->width, mSize->height, true);
+        mDump->initDump(mSize->width, mSize->height, true);
+    }
 
     mStarted = true;
 
@@ -2020,23 +2023,8 @@ void C2RKMpiEnc::process(
         }
     }
 
-    {
-        // handle dynamic bitrate config.
-        IntfImpl::Lock lock = mIntf->lock();
-        std::shared_ptr<C2StreamBitrateInfo::output> bitrate = mIntf->getBitrate_l();
-        lock.unlock();
-        if (bitrate != mBitrate) {
-            int32_t mppErr = 0;
-            setupBitRate();
-            mppErr = mMppMpi->control(mMppCtx, MPP_ENC_SET_CFG, mEncCfg);
-            if (mppErr) {
-                c2_err("failed to setup dynamic bitrate, ret %d", err);
-            } else {
-                c2_info("new bitrate requeset, value %d", bitrate->value);
-                mBitrate = bitrate;
-            }
-        }
-    }
+    // handle common dynamic config change
+    handleCommonDynamicCfg();
 
     MyDmaBuffer_t inDmaBuf;
     OutWorkEntry entry;
@@ -2079,6 +2067,59 @@ void C2RKMpiEnc::process(
     if (mSawInputEOS && !mOutputEOS) {
         drainInternal(DRAIN_COMPONENT_WITH_EOS, pool, work);
     }
+}
+
+c2_status_t C2RKMpiEnc::handleCommonDynamicCfg() {
+    bool change = false;
+    int32_t err = 0;
+
+    IntfImpl::Lock lock = mIntf->lock();
+    std::shared_ptr<C2StreamPictureSizeInfo::input> size = mIntf->getSize_l();
+    std::shared_ptr<C2StreamBitrateInfo::output> bitrate = mIntf->getBitrate_l();
+    std::shared_ptr<C2StreamFrameRateInfo::output> frameRate = mIntf->getFrameRate_l();
+    uint32_t profile = mIntf->getProfile_l(mCodingType);
+    lock.unlock();
+
+    // handle dynamic size config.
+    if (size != mSize) {
+        c2_info("new size request, w %d h %d", size->width, size->height);
+        mSize = size;
+        setupBaseCodec();
+        change = true;
+    }
+
+    // handle dynamic bitrate config.
+    if (bitrate != mBitrate) {
+        c2_info("new bitrate request, value %d", bitrate->value);
+        mBitrate = bitrate;
+        setupBitRate();
+        change = true;
+    }
+
+    // handle dynamic frameRate config.
+    if (frameRate != mFrameRate) {
+        c2_info("new frameRate request, value %.2f", frameRate->value);
+        mFrameRate = frameRate;
+        setupFrameRate();
+        change = true;
+    }
+
+    // handle dynamic profile config.
+    if (profile != mProfile) {
+        c2_info("new profile request, value %s", toStr_Profile(profile, mCodingType));
+        mProfile = profile;
+        setupProfileParams();
+        change = true;
+    }
+
+    if (change) {
+        err = mMppMpi->control(mMppCtx, MPP_ENC_SET_CFG, mEncCfg);
+        if (err) {
+            c2_err("failed to setup dynamic config, ret %d", err);
+        }
+    }
+
+    return C2_OK;
 }
 
 c2_status_t C2RKMpiEnc::handleRequestSyncFrame() {
