@@ -1493,13 +1493,19 @@ c2_status_t C2RKMpiDec::ensureDecoderState(
             break;
     }
 
-    switch (mRange) {
-        case C2Color::RANGE_FULL:
-            usage |= MALI_GRALLOC_USAGE_RANGE_WIDE;
-            break;
-        case C2Color::RANGE_LIMITED:
-            usage |= MALI_GRALLOC_USAGE_RANGE_NARROW;
-            break;
+    // only large than gralloc 4 can support int64 usage.
+    // otherwise, gralloc 3 will check high 32bit is empty,
+    // if not empty, will alloc buffer failed and return
+    // error. RANGE_WIDE usage is 1 << 50.
+    if (mGrallocVersion >= 4) {
+        switch (mRange) {
+            case C2Color::RANGE_FULL:
+                usage |= MALI_GRALLOC_USAGE_RANGE_WIDE;
+                break;
+            case C2Color::RANGE_LIMITED:
+                usage |= MALI_GRALLOC_USAGE_RANGE_NARROW;
+                break;
+        }
     }
 
     /*
@@ -1517,7 +1523,7 @@ c2_status_t C2RKMpiDec::ensureDecoderState(
                                           C2AndroidMemoryUsage::FromGrallocUsage(usage),
                                           &mOutBlock);
             if (ret != C2_OK) {
-                c2_err("failed to fetchGraphicBlock, err %d", ret);
+                c2_err("failed to fetchGraphicBlock, err %d usage 0x%llx", ret, usage);
                 return ret;
             }
             c2_trace("required (%dx%d) usage 0x%llx format 0x%x , fetch done",
