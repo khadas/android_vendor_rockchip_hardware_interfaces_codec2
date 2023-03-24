@@ -1492,20 +1492,21 @@ c2_status_t C2RKMpiDec::ensureDecoderState(
             usage |= MALI_GRALLOC_USAGE_YUV_COLOR_SPACE_BT709;
             break;
     }
+    switch (mRange) {
+        case C2Color::RANGE_FULL:
+            usage |= MALI_GRALLOC_USAGE_RANGE_WIDE;
+            break;
+        case C2Color::RANGE_LIMITED:
+            usage |= MALI_GRALLOC_USAGE_RANGE_NARROW;
+            break;
+    }
 
     // only large than gralloc 4 can support int64 usage.
     // otherwise, gralloc 3 will check high 32bit is empty,
     // if not empty, will alloc buffer failed and return
-    // error. RANGE_WIDE usage is 1 << 50.
-    if (mGrallocVersion >= 4) {
-        switch (mRange) {
-            case C2Color::RANGE_FULL:
-                usage |= MALI_GRALLOC_USAGE_RANGE_WIDE;
-                break;
-            case C2Color::RANGE_LIMITED:
-                usage |= MALI_GRALLOC_USAGE_RANGE_NARROW;
-                break;
-        }
+    // error. So we need clear high 32 bit.
+    if (mGrallocVersion < 4) {
+        usage &= 0xffffffff;
     }
 
     /*
