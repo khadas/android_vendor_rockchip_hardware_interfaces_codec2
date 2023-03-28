@@ -231,6 +231,9 @@ private:
             mFlush = false;
             return flush;
         }
+        inline bool isPenddingFlushing() {
+            return mFlush;
+        }
         void clear();
         PendingWork &pending() { return mPendingWork; }
 

@@ -529,7 +529,7 @@ C2RKMpiDec::C2RKMpiDec(
       mGenerationChange(false),
       mGenerationCount(0),
       mStarted(false),
-      mFlushed(false),
+      mFlushed(true),
       mOutputEos(false),
       mSignalledInputEos(false),
       mSignalledError(false),
@@ -620,22 +620,24 @@ c2_status_t C2RKMpiDec::onFlush_sm() {
 
     c2_log_func_enter();
 
-    mOutputEos = false;
-    mSignalledInputEos = false;
-    mSignalledError = false;
-    mGeneration = 0;
+    if (!mFlushed) {
+        mOutputEos = false;
+        mSignalledInputEos = false;
+        mSignalledError = false;
+        mGeneration = 0;
 
-    clearOutBuffers();
+        clearOutBuffers();
 
-    if (mFrmGrp) {
-        mpp_buffer_group_clear(mFrmGrp);
+        if (mFrmGrp) {
+            mpp_buffer_group_clear(mFrmGrp);
+        }
+
+        if (mMppMpi) {
+            mMppMpi->reset(mMppCtx);
+        }
+
+        mFlushed = true;
     }
-
-    if (mMppMpi) {
-        mMppMpi->reset(mMppCtx);
-    }
-
-    mFlushed = true;
 
     return ret;
 }
@@ -997,7 +999,6 @@ void C2RKMpiDec::process(
     work->workletsProcessed = 0u;
     work->worklets.front()->output.flags = work->input.flags;
 
-    mFlushed = false;
     mBufferMode = (pool->getLocalId() <= C2BlockPool::PLATFORM_START);
 
     // Initialize decoder if not already initialized
@@ -1043,6 +1044,11 @@ void C2RKMpiDec::process(
     bool sendPacketFlag = true;
     uint32_t outfrmCnt = 0;
     OutWorkEntry entry;
+
+    if ((flags & C2FrameData::FLAG_CODEC_CONFIG) == 0) {
+        // reset flush flag when get non-config frame.
+        mFlushed = false;
+    }
 
     err = ensureDecoderState(pool);
     if (err != C2_OK) {

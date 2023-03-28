@@ -451,26 +451,20 @@ void C2RKComponent::finish(
         return;
     }
 
-    bool isFlushPending = false;
+    bool isPendingFlushing = false;
     {
         Mutexed<WorkQueue>::Locked queue(mWorkQueue);
-        isFlushPending = queue->popPendingFlush();
+        isPendingFlushing = queue->isPenddingFlushing();
     }
 
-    if (isFlushPending) {
-        c2_trace("processing pending flush");
-        c2_status_t err = onFlush_sm();
-        if (err != C2_OK) {
-            c2_err("flush err: %d", err);
-            // TODO: error
-        }
-        return;
+    if (!isPendingFlushing) {
+        fillWork(work);
+        std::shared_ptr<C2Component::Listener> listener = mExecState.lock()->mListener;
+        listener->onWorkDone_nb(shared_from_this(), vec(work));
+        c2_trace("returning pending work");
+    } else {
+        c2_trace("ignore work since pedding flushing");
     }
-
-    fillWork(work);
-    std::shared_ptr<C2Component::Listener> listener = mExecState.lock()->mListener;
-    listener->onWorkDone_nb(shared_from_this(), vec(work));
-    c2_trace("returning pending work");
 }
 
 void C2RKComponent::cloneAndSend(
@@ -605,12 +599,6 @@ bool C2RKComponent::processQueue() {
     if (!work->input.buffers.empty() && !work->input.buffers[0]) {
         c2_info("Encountered null input buffer. Clearing the input buffer");
         work->input.buffers.clear();
-    }
-    if (work->input.flags & C2FrameData::FLAG_DROP_FRAME) {
-        if (work->input.flags & C2FrameData::FLAG_CODEC_CONFIG) {
-            c2_info("Discard extra pkt from previous generation");
-            work->input.buffers.clear();
-        }
     }
     process(work, mOutputBlockPool);
     c2_trace("processed frame #%" PRIu64, work->input.ordinal.frameIndex.peeku());
