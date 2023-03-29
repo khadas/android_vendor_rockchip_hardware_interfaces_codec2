@@ -2224,6 +2224,7 @@ c2_status_t C2RKMpiEnc::getInBufferFromWork(
         const std::unique_ptr<C2Work> &work, MyDmaBuffer_t *outBuffer) {
     c2_status_t ret = C2_OK;
     uint64_t frameIndex = work->input.ordinal.frameIndex.peekull();
+    bool configChanged = false;
 
     if (work->input.buffers.empty()) {
         c2_warn("ignore empty input with frameIndex %lld", frameIndex);
@@ -2286,18 +2287,9 @@ c2_status_t C2RKMpiEnc::getInBufferFromWork(
             outBuffer->size = mHorStride * mVerStride * 4;
 
             if (mInputMppFmt != MPP_FMT_RGBA8888) {
-                // setup encoder using new rgba format
-                mpp_enc_cfg_set_s32(mEncCfg, "prep:hor_stride", mHorStride * 4);
-                mpp_enc_cfg_set_s32(mEncCfg, "prep:ver_stride", mVerStride);
-                mpp_enc_cfg_set_s32(mEncCfg, "prep:format", MPP_FMT_RGBA8888);
-
-                int err = mMppMpi->control(mMppCtx, MPP_ENC_SET_CFG, mEncCfg);
-                if (!err) {
-                    c2_info("use rgba input format.");
-                    mInputMppFmt = MPP_FMT_RGBA8888;
-                } else {
-                    c2_err("failed to setup new format config.");
-                }
+                c2_info("update use rgba input format.");
+                mInputMppFmt = MPP_FMT_RGBA8888;
+                configChanged = true;
             }
         } else {
             C2RKRgaDef::paramInit(&src, fd, width, height, stride, height);
@@ -2319,6 +2311,12 @@ c2_status_t C2RKMpiEnc::getInBufferFromWork(
         /* dump input data if neccessary */
         mDump->recordInFile((void*)input->data()[0], stride, height, RAW_TYPE_YUV420SP);
 
+        if (mInputMppFmt != MPP_FMT_YUV420SP) {
+            c2_info("update use yuv input format.");
+            mInputMppFmt = MPP_FMT_YUV420SP;
+            configChanged = true;
+        }
+
         /*
          * mpp-driver fetch buffer 16 bits at one time, so the stride of
          * input buffer shoule be aligned to 16.
@@ -2326,7 +2324,7 @@ c2_status_t C2RKMpiEnc::getInBufferFromWork(
          * copy input buffer to anothor larger dmaBuffer, and than import
          * this dmaBuffer to encoder.
          */
-        if (((mChipType != RK_CHIP_3588) && ((stride & 0xf) || (height & 0xf)))) {
+        if ((mChipType != RK_CHIP_3588) && ((stride & 0xf) || (height & 0xf))) {
             RgaParam src, dst;
 
             C2RKRgaDef::paramInit(&src, fd, width, height, stride, height);
@@ -2343,18 +2341,11 @@ c2_status_t C2RKMpiEnc::getInBufferFromWork(
         } else {
             if (mHorStride != stride || mVerStride != height) {
                 // setup encoder using new stride config
-                mpp_enc_cfg_set_s32(mEncCfg, "prep:hor_stride", stride);
-                mpp_enc_cfg_set_s32(mEncCfg, "prep:ver_stride", height);
-
-                int err = mMppMpi->control(mMppCtx, MPP_ENC_SET_CFG, mEncCfg);
-                if (!err) {
-                    c2_info("cfg stride change from [%d:%d] -> [%d %d]",
-                            mHorStride, mVerStride, stride, height);
-                    mHorStride = stride;
-                    mVerStride = height;
-                } else {
-                    c2_err("failed to setup new mpp config.");
-                }
+                c2_info("cfg stride change from [%d:%d] -> [%d %d]",
+                        mHorStride, mVerStride, stride, height);
+                mHorStride = stride;
+                mVerStride = height;
+                configChanged = true;
             }
             outBuffer->fd = fd;
             outBuffer->size = mHorStride * mVerStride * 3 / 2;
@@ -2363,6 +2354,21 @@ c2_status_t C2RKMpiEnc::getInBufferFromWork(
     default:
         c2_err("Unrecognized plane type: %d", layout.type);
         ret = C2_BAD_VALUE;
+    }
+
+    if (configChanged) {
+        if (mInputMppFmt == MPP_FMT_RGBA8888) {
+            mpp_enc_cfg_set_s32(mEncCfg, "prep:hor_stride", mHorStride * 4);
+        } else {
+            mpp_enc_cfg_set_s32(mEncCfg, "prep:hor_stride", mHorStride);
+        }
+        mpp_enc_cfg_set_s32(mEncCfg, "prep:ver_stride", mVerStride);
+        mpp_enc_cfg_set_s32(mEncCfg, "prep:format", mInputMppFmt);
+        int err = mMppMpi->control(mMppCtx, MPP_ENC_SET_CFG, mEncCfg);
+        if (err) {
+            c2_err("failed to setup new mpp config.");
+            ret = C2_CORRUPTED;
+        }
     }
 
     return ret;
