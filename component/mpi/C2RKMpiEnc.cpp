@@ -1817,8 +1817,9 @@ void C2RKMpiEnc::finishWork(
 
     void   *data = mpp_packet_get_data(packet);
     size_t  len  = mpp_packet_get_length(packet);
+    sizt_t  size = mpp_packet_get_size(packet);
 
-    ret = pool->fetchLinearBlock(len, usage, &block);
+    ret = pool->fetchLinearBlock(size, usage, &block);
     if (ret != C2_OK) {
         c2_err("failed to fetch block for output, ret 0x%x", ret);
         work->result = ret;
