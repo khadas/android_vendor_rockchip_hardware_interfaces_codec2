@@ -1784,10 +1784,6 @@ c2_status_t C2RKMpiEnc::releaseEncoder() {
         mDump = nullptr;
     }
 
-    if (mOutputBlock) {
-        mOutputBlock.reset();
-    }
-
     return C2_OK;
 }
 
@@ -1813,6 +1809,7 @@ void C2RKMpiEnc::finishWork(
     c2_status_t ret = C2_OK;
     uint64_t frmIndex = 0;
     MppPacket packet = nullptr;
+    std::shared_ptr<C2LinearBlock> block;
     C2MemoryUsage usage = { C2MemoryUsage::CPU_READ, C2MemoryUsage::CPU_WRITE };
 
     frmIndex = entry.frameIndex;
@@ -1821,23 +1818,16 @@ void C2RKMpiEnc::finishWork(
     void   *data = mpp_packet_get_data(packet);
     size_t  len  = mpp_packet_get_length(packet);
 
-    if (mOutputBlock && mOutputBlock->size() < len) {
-        mOutputBlock.reset();
+    ret = pool->fetchLinearBlock(len, usage, &block);
+    if (ret != C2_OK) {
+        c2_err("failed to fetch block for output, ret 0x%x", ret);
+        work->result = ret;
+        work->workletsProcessed = 1u;
+        mSignalledError = true;
+        return;
     }
 
-    if (!mOutputBlock) {
-        ret = pool->fetchLinearBlock(len, usage, &mOutputBlock);
-        if (ret != C2_OK) {
-            c2_err("failed to fetch block for output, ret 0x%x", ret);
-            work->result = ret;
-            work->workletsProcessed = 1u;
-            mSignalledError = true;
-            return;
-        }
-        c2_info("allocated output linearBlock size %d", mOutputBlock->size());
-    }
-
-    C2WriteView wView = mOutputBlock->map().get();
+    C2WriteView wView = block->map().get();
     if (C2_OK != wView.error()) {
         c2_err("write view map failed with status 0x%x", wView.error());
         work->result = wView.error();
@@ -1850,7 +1840,7 @@ void C2RKMpiEnc::finishWork(
     memcpy(wView.data(), data, len);
 
     RK_S32 isIntra = 0;
-    std::shared_ptr<C2Buffer> buffer = createLinearBuffer(mOutputBlock, 0, len);
+    std::shared_ptr<C2Buffer> buffer = createLinearBuffer(block, 0, len);
     MppMeta meta = mpp_packet_get_meta(packet);
     mpp_meta_get_s32(meta, KEY_OUTPUT_INTRA, &isIntra);
     if (isIntra) {
