@@ -1817,7 +1817,7 @@ void C2RKMpiEnc::finishWork(
 
     void   *data = mpp_packet_get_data(packet);
     size_t  len  = mpp_packet_get_length(packet);
-    sizt_t  size = mpp_packet_get_size(packet);
+    size_t  size = mpp_packet_get_size(packet);
 
     ret = pool->fetchLinearBlock(size, usage, &block);
     if (ret != C2_OK) {
