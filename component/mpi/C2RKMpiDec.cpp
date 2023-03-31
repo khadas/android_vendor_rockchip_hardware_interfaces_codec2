@@ -40,14 +40,10 @@
 
 namespace android {
 
-constexpr uint32_t kDefaultOutputDelay = 16;
-constexpr uint32_t kMaxOutputDelay = 16;
-
 /* max support video resolution */
 constexpr uint32_t kMaxVideoWidth = 8192;
 constexpr uint32_t kMaxVideoHeight = 4320;
 
-constexpr uint32_t kMaxReferenceCount = 16;
 constexpr size_t kMinInputBufferSize = 2 * 1024 * 1024;
 
 constexpr uint32_t kMaxGegerationClearCount = 100;
@@ -63,8 +59,8 @@ public:
         : C2RKInterface<void>::BaseParams(helper, name, kind, domain, mediaType) {
         addParameter(
                 DefineParam(mActualOutputDelay, C2_PARAMKEY_OUTPUT_DELAY)
-                .withDefault(new C2PortActualDelayTuning::output(kDefaultOutputDelay))
-                .withFields({C2F(mActualOutputDelay, value).inRange(0, kMaxOutputDelay)})
+                .withDefault(new C2PortActualDelayTuning::output(DEFAULT_OUTPUT_DELAY))
+                .withFields({C2F(mActualOutputDelay, value).inRange(0, MAX_OUTPUT_DELAY)})
                 .withSetter(Setter<decltype(*mActualOutputDelay)>::StrictValueWithNoDeps)
                 .build());
 
@@ -561,14 +557,23 @@ C2RKMpiDec::~C2RKMpiDec() {
 }
 
 c2_status_t C2RKMpiDec::onInit() {
+    c2_status_t ret = C2_OK;
+
     c2_log_func_enter();
+
     if (sDecConcurrentInstances.load() >= kMaxDecConcurrentInstances) {
         c2_warn("Reject to Initialize() due to too many dec instances: %d",
                 sDecConcurrentInstances.load());
         return C2_NO_MEMORY;
     }
     sDecConcurrentInstances.fetch_add(1, std::memory_order_relaxed);
-    return C2_OK;
+
+    ret = updateOutputDelay();
+    if (ret != C2_OK) {
+        c2_err("failed to update output delay, ret %d", ret);
+    }
+
+    return ret;
 }
 
 c2_status_t C2RKMpiDec::onStop() {
@@ -1126,6 +1131,11 @@ outframe:
             work->result = C2_CORRUPTED;
             return;
         }
+        err = updateOutputDelay();
+        if (err != C2_OK) {
+            c2_err("failed to update output delay, ret %d", err);
+            return;
+        }
 
         goto outframe;
     } else if (outfrmCnt == 0) {
@@ -1564,7 +1574,7 @@ c2_status_t C2RKMpiDec::ensureDecoderState(
         }
     } else {
         std::shared_ptr<C2GraphicBlock> outblock;
-        uint32_t count = kMaxReferenceCount - getOutBufferCountOwnByMpi();
+        uint32_t count = mIntf->mActualOutputDelay->value + 1 - getOutBufferCountOwnByMpi();
 
         uint32_t i = 0;
         for (i = 0; i < count; i++) {
@@ -1587,6 +1597,34 @@ c2_status_t C2RKMpiDec::ensureDecoderState(
     }
 
     return ret;
+}
+
+c2_status_t C2RKMpiDec::updateOutputDelay() {
+    c2_status_t err = C2_OK;
+    uint32_t outputDelay = 0;
+    C2StreamPictureSizeInfo::output size(0u, mWidth, mHeight);
+    C2StreamProfileLevelInfo::input profileLevel(0u, PROFILE_UNUSED, LEVEL_UNUSED);
+
+    err = mIntf->query(
+            { &size, &profileLevel },
+            {},
+            C2_DONT_BLOCK,
+            nullptr);
+
+    outputDelay = C2RKMediaUtils::calculateOutputDelay(size.width, size.height,
+                                                       mCodingType, profileLevel.level);
+
+    c2_info("codec(%d) video(%dx%d) profile&level(%d %d) needs %d reference frames",
+            mCodingType, size.width, size.height,
+            profileLevel.profile, profileLevel.level, outputDelay);
+
+    C2PortActualDelayTuning::output tuningOutputDelay(outputDelay);
+    std::vector<std::unique_ptr<C2SettingResult>> failures;
+    err = mIntf->config({&tuningOutputDelay},
+                         C2_MAY_BLOCK,
+                         &failures);
+
+    return err;
 }
 
 class C2RKMpiDecFactory : public C2ComponentFactory {

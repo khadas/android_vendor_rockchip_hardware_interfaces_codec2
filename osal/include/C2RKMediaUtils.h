@@ -31,9 +31,20 @@ extern std::atomic<int32_t> sEncConcurrentInstances;
 #define kMaxDecConcurrentInstances     32
 #define kMaxEncConcurrentInstances     32
 
+#define AVC_MIN_OUTPUT_DELAY            4
+#define HEVC_MIN_OUTPUT_DELAY           6
+#define VP9_MIN_OUTPUT_DELAY            4
+#define VP9_MAX_OUTPUT_DELAY            8
+#define AV1_OUTPUT_DELAY               10
+#define IEP_MAX_OUTPUT_DELAY            5
+
+#define DEFAULT_OUTPUT_DELAY           12
+#define MAX_OUTPUT_DELAY               16
+
 #define C2_SAFE_FREE(p) { if (p) {free(p); (p)=NULL;} }
 #define C2_ALIGN(x, a)         (((x)+(a)-1)&~((a)-1))
 #define C2_ALIGN_ODD(x, a)     (((x)+(a)-1)&~((a)-1) | a)
+#define C2_CLIP(a, l, h)       ((a) < (l) ? (l) : ((a) > (h) ? (h) : (a)))
 
 #define C2_RK_ARRAY_ELEMS(a)      (sizeof(a) / sizeof((a)[0]))
 
@@ -62,6 +73,12 @@ static const struct ComponentMapEntry {
     { "c2.rk.vp8.encoder", MPP_VIDEO_CodingVP8, MEDIA_MIMETYPE_VIDEO_VP8, MPP_CTX_ENC }
 };
 
+typedef struct {
+    int32_t      level;
+    uint32_t     maxDpbPixs;     /* Max dpb picture total pixels */
+    const char  *name;
+} C2LevelInfo;
+
 class C2RKMediaUtils {
 public:
     static bool getCodingTypeFromComponentName(C2String componentName, MppCodingType *codingType);
@@ -71,6 +88,7 @@ public:
     static bool checkHWSupport(MppCtxType type, MppCodingType codingType);
     static int32_t colorFormatMpiToAndroid(uint32_t format, bool fbcMode);
     static uint64_t getStrideUsage(int32_t width, int32_t stride);
+    static uint32_t calculateOutputDelay(int32_t width, int32_t height, MppCodingType type, int32_t level);
 };
 
 #endif  // ANDROID_C2_RK_MEDIA_UTILS_H_
