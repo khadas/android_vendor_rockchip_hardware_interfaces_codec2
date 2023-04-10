@@ -78,10 +78,10 @@ typedef enum {
     MPP_FRAME_PRI_BT470M        = 4,    ///< also FCC Title 47 Code of Federal Regulations 73.682 (a)(20)
 
     MPP_FRAME_PRI_BT470BG       = 5,    ///< also ITU-R BT601-6 625 / ITU-R BT1358 625 / ITU-R BT1700 625 PAL & SECAM
-    MPP_FRAME_PRI_SMPTE170M     = 6,    ///< also ITU-R BT601-6 525 / ITU-R BT1358 525 / ITU-R BT1700 NTSC
-    MPP_FRAME_PRI_SMPTE240M     = 7,    ///< functionally identical to above
+    MPP_FRAME_PRI_SMPTE170M     = 6,    ///< also ITU-R BT601-6 525 / ITU-R BT1358 525 / ITU-R BT1700 NTSC/SMPTE ST 170 (2004)
+    MPP_FRAME_PRI_SMPTE240M     = 7,    ///< functionally identical to above/SMPTE ST 240
     MPP_FRAME_PRI_FILM          = 8,    ///< colour filters using Illuminant C
-    MPP_FRAME_PRI_BT2020        = 9,    ///< ITU-R BT2020
+    MPP_FRAME_PRI_BT2020        = 9,    ///< ITU-R BT2020 / ITU-R BT.2100-2
     MPP_FRAME_PRI_SMPTEST428_1  = 10,   ///< SMPTE ST 428-1 (CIE 1931 XYZ)
     MPP_FRAME_PRI_SMPTE431      = 11,   ///< SMPTE ST 431-2 (2011) / DCI P3
     MPP_FRAME_PRI_SMPTE432      = 12,   ///< SMPTE ST 432-1 (2010) / P3 D65 / Display P3
@@ -171,6 +171,12 @@ typedef enum {
 
 #define MPP_FRAME_FBC_MASK          (0x00f00000)
 #define MPP_FRAME_FBC_NONE          (0x00000000)
+
+#define MPP_FRAME_HDR_MASK          (0x0f000000)
+#define MPP_FRAME_HDR_NONE          (0x00000000)
+
+#define MPP_FRAME_HDR               (0x01000000)
+
 /*
  * AFBC_V1 is for ISP output.
  * It has default payload offset to be calculated * from width and height:
@@ -195,6 +201,8 @@ typedef enum {
  * For MPP_FRAME_FBC_AFBC_V1 the 16byte aligned stride is used.
  */
 #define MPP_FRAME_FMT_IS_FBC(fmt)   (fmt & MPP_FRAME_FBC_MASK)
+
+#define MPP_FRAME_FMT_IS_HDR(fmt)   (fmt & MPP_FRAME_HDR_MASK)
 
 #define MPP_FRAME_FMT_IS_LE(fmt)    ((fmt & MPP_FRAME_FMT_LE_MASK) == MPP_FRAME_FMT_LE_MASK)
 #define MPP_FRAME_FMT_IS_BE(fmt)    ((fmt & MPP_FRAME_FMT_LE_MASK) == 0)
@@ -221,6 +229,7 @@ typedef enum {
     MPP_FMT_YUV440SP        = (MPP_FRAME_FMT_YUV + 13), /* YYYY... UVUV...          */
     MPP_FMT_YUV411SP        = (MPP_FRAME_FMT_YUV + 14), /* YYYY... UV...            */
     MPP_FMT_YUV444SP        = (MPP_FRAME_FMT_YUV + 15), /* YYYY... UVUVUVUV...      */
+    MPP_FMT_YUV444P         = (MPP_FRAME_FMT_YUV + 16), /* YYYY... UUUU... VVVV...  */
     MPP_FMT_YUV_BUTT,
 
     MPP_FMT_RGB565          = (MPP_FRAME_FMT_RGB + 0),  /* 16-bit RGB               */
@@ -262,10 +271,35 @@ typedef struct MppFrameContentLightMetadata {
     RK_U16 MaxFALL;
 } MppFrameContentLightMetadata;
 
-typedef enum {
+typedef struct MppFrameHdrDynamicMeta {
+    RK_U32 hdr_fmt;
+    RK_U32 size;
+    RK_U8 data[];
+} MppFrameHdrDynamicMeta;
+
+typedef enum MppFrameError {
+    /* General error not specified */
     MPP_FRAME_ERR_UNKNOW           = 0x0001,
+
+    /* Critical error for decoder not support error */
     MPP_FRAME_ERR_UNSUPPORT        = 0x0002,
-} MPP_FRAME_ERR;
+
+    /*
+     * Fatal error for decoder can not parse a valid frame for hardware.
+     * the pixel data is all invalid.
+     */
+    MPP_FRAME_ERR_DEC_INVALID      = 0x0010,
+
+    /*
+     * Normal error for decoder found hardware error on decoding.
+     */
+    MPP_FRAME_ERR_DEC_HW_ERR       = 0x0100,
+
+    /*
+     * Normal error for decoder found missing reference frame on decoding.
+     */
+    MPP_FRAME_ERR_DEC_MISS_REF     = 0x0200,
+} MppFrameError;
 
 #ifdef __cplusplus
 extern "C" {
@@ -276,7 +310,6 @@ extern "C" {
  */
 MPP_RET mpp_frame_init(MppFrame *frame);
 MPP_RET mpp_frame_deinit(MppFrame *frame);
-MppFrame mpp_frame_get_next(MppFrame frame);
 
 /*
  * normal parameter
@@ -315,6 +348,8 @@ RK_U32  mpp_frame_get_ver_stride(const MppFrame frame);
 void    mpp_frame_set_ver_stride(MppFrame frame, RK_U32 ver_stride);
 void    mpp_frame_set_hor_stride_pixel(MppFrame frame, RK_U32 hor_stride_pixel);
 RK_U32  mpp_frame_get_hor_stride_pixel(const MppFrame frame);
+void    mpp_frame_set_fbc_hdr_stride(MppFrame frame, RK_U32 fbc_hdr_stride);
+RK_U32  mpp_frame_get_fbc_hdr_stride(const MppFrame frame);
 
 RK_U32  mpp_frame_get_offset_x(const MppFrame frame);
 void    mpp_frame_set_offset_x(MppFrame frame, RK_U32 offset_x);
@@ -336,6 +371,9 @@ RK_U32  mpp_frame_get_errinfo(const MppFrame frame);
 void    mpp_frame_set_errinfo(MppFrame frame, RK_U32 errinfo);
 size_t  mpp_frame_get_buf_size(const MppFrame frame);
 void    mpp_frame_set_buf_size(MppFrame frame, size_t buf_size);
+void    mpp_frame_set_thumbnail_en(MppFrame frame, RK_U32 thumbnail_en);
+RK_U32  mpp_frame_get_thumbnail_en(const MppFrame frame);
+
 /*
  * flow control parmeter
  */
@@ -378,6 +416,8 @@ MppFrameMasteringDisplayMetadata mpp_frame_get_mastering_display(const MppFrame 
 void    mpp_frame_set_mastering_display(MppFrame frame, MppFrameMasteringDisplayMetadata mastering_display);
 MppFrameContentLightMetadata mpp_frame_get_content_light(const MppFrame frame);
 void    mpp_frame_set_content_light(MppFrame frame, MppFrameContentLightMetadata content_light);
+MppFrameHdrDynamicMeta* mpp_frame_get_hdr_dynamic_meta(const MppFrame frame);
+void    mpp_frame_set_hdr_dynamic_meta(MppFrame frame, MppFrameHdrDynamicMeta *vivi_data);
 
 /*
  * HDR parameter

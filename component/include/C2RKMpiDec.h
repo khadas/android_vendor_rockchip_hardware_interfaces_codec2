@@ -108,6 +108,8 @@ private:
     bool mLowLatencyMode;
     bool mGraphicBufferSource;
 
+    bool mScaleEnabled;
+
     /*
        1. BufferMode:  without surcace
        2. SurfaceMode: with surface

@@ -125,6 +125,10 @@ static const C2GrallocInfo GrallocInfos[] = {
     {
         "rk3588",
         4,
+    },
+    {
+        "rk3528",
+        3,
     }
 };
 

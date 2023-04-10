@@ -24,6 +24,8 @@
 #include <stdio.h>
 #include "C2RKChips.h"
 
+#define GRALLOC_USAGE_RKVDEC_SCALING   0x01000000U
+
 typedef struct {
     const char *chipName;
     int         grallocVersion;

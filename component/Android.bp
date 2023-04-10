@@ -28,6 +28,7 @@ cc_library_shared {
         "librga",
         "libui",
         "libgralloc_priv",
+        "libhardware",
     ],
 
     export_include_dirs: [

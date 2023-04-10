@@ -15,11 +15,11 @@
  *
  * author: kevin.chen@rock-chips.com
  *   date: 20210414
- * module: fbc def.
+ * module: chip features define
  */
 
-#ifndef SRC_RT_MEDIA_INCLUDE_RTFBCDEF_H_
-#define SRC_RT_MEDIA_INCLUDE_RTFBCDEF_H_
+#ifndef SRC_RT_MEDIA_INCLUDE_RKCHIPFEATURESDEF_H_
+#define SRC_RT_MEDIA_INCLUDE_RKCHIPFEATURESDEF_H_
 
 #include <stdio.h>
 #include "C2RKChips.h"
@@ -46,12 +46,15 @@ typedef struct {
     RKChipType  chipType;
     int         fbcCapNum;
     C2FbcCaps  *fbcCaps;
-} C2FbcInfo;
+    uint32_t    scaleMetaCap     : 1;
+    uint32_t    reserved         : 31;
+} C2ChipFeatures;
 
-class C2RKFbcDef {
+class C2RKChipFeaturesDef {
  public:
     static int   getFbcOutputMode(MppCodingType codecId);
     static void  getFbcOutputOffset(MppCodingType codecId, uint32_t *offsetX, uint32_t *offsetY);
+    static uint32_t getScaleMetaCap();
 };
 
-#endif  // SRC_RT_MEDIA_INCLUDE_RTFBCDEF_H_
+#endif  // SRC_RT_MEDIA_INCLUDE_RKCHIPFEATURESDEF_H_

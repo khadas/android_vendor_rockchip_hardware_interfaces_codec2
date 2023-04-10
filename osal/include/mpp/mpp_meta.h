@@ -66,6 +66,8 @@ typedef enum MppMetaKey_e {
     /* output motion information for motion detection */
     KEY_MOTION_INFO             = FOURCC_META('m', 'v', 'i', 'f'),
     KEY_HDR_INFO                = FOURCC_META('h', 'd', 'r', ' '),
+    KEY_HDR_META_OFFSET         = FOURCC_META('h', 'd', 'r', 'o'),
+    KEY_HDR_META_SIZE           = FOURCC_META('h', 'd', 'r', 'l'),
 
     /* flow control key */
     KEY_INPUT_BLOCK             = FOURCC_META('i', 'b', 'l', 'k'),
@@ -129,6 +131,11 @@ typedef enum MppMetaKey_e {
     /* MLVEC specified encoder feature  */
     KEY_ENC_FRAME_QP            = FOURCC_META('f', 'r', 'm', 'q'),
     KEY_ENC_BASE_LAYER_PID      = FOURCC_META('b', 'p', 'i', 'd'),
+
+    /* Thumbnail info for decoder output frame */
+    KEY_DEC_TBN_EN              = FOURCC_META('t', 'b', 'e', 'n'),
+    KEY_DEC_TBN_Y_OFFSET        = FOURCC_META('t', 'b', 'y', 'o'),
+    KEY_DEC_TBN_UV_OFFSET       = FOURCC_META('t', 'b', 'c', 'o'),
 } MppMetaKey;
 
 #define mpp_meta_get(meta) mpp_meta_get_with_tag(meta, MODULE_TAG, __FUNCTION__)
@@ -157,6 +164,13 @@ MPP_RET mpp_meta_set_buffer(MppMeta meta, MppMetaKey key, MppBuffer buffer);
 MPP_RET mpp_meta_get_frame (MppMeta meta, MppMetaKey key, MppFrame  *frame);
 MPP_RET mpp_meta_get_packet(MppMeta meta, MppMetaKey key, MppPacket *packet);
 MPP_RET mpp_meta_get_buffer(MppMeta meta, MppMetaKey key, MppBuffer *buffer);
+
+MPP_RET mpp_meta_get_s32_d(MppMeta meta, MppMetaKey key, RK_S32 *val, RK_S32 def);
+MPP_RET mpp_meta_get_s64_d(MppMeta meta, MppMetaKey key, RK_S64 *val, RK_S64 def);
+MPP_RET mpp_meta_get_ptr_d(MppMeta meta, MppMetaKey key, void  **val, void *def);
+MPP_RET mpp_meta_get_frame_d(MppMeta meta, MppMetaKey key, MppFrame *frame, MppFrame def);
+MPP_RET mpp_meta_get_packet_d(MppMeta meta, MppMetaKey key, MppPacket *packet, MppPacket def);
+MPP_RET mpp_meta_get_buffer_d(MppMeta meta, MppMetaKey key, MppBuffer *buffer, MppBuffer def);
 
 #ifdef __cplusplus
 }

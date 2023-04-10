@@ -79,7 +79,36 @@ MPP_RET mpp_packet_write(MppPacket packet, size_t offset, void *data, size_t siz
 /*
  * meta data access interface
  */
+RK_S32  mpp_packet_has_meta(const MppPacket packet);
 MppMeta mpp_packet_get_meta(const MppPacket packet);
+
+/*
+ * multi packet sequence interface for slice/split encoding/decoding
+ * partition - the packet is a part of a while image
+ * soi - Start Of Image
+ * eoi - End Of Image
+ */
+RK_U32  mpp_packet_is_partition(const MppPacket packet);
+RK_U32  mpp_packet_is_soi(const MppPacket packet);
+RK_U32  mpp_packet_is_eoi(const MppPacket packet);
+
+/*
+ * packet segement pack info for
+ * segment number - number of segment
+ * segment info   - base address of segment info
+ */
+typedef struct MppPktSeg_t MppPktSeg;
+
+struct MppPktSeg_t {
+    RK_S32          index;
+    RK_S32          type;
+    RK_U32          offset;
+    RK_U32          len;
+    const MppPktSeg *next;
+};
+
+RK_U32 mpp_packet_get_segment_nb(const MppPacket packet);
+const MppPktSeg *mpp_packet_get_segment_info(const MppPacket packet);
 
 #ifdef __cplusplus
 }

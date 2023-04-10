@@ -31,12 +31,13 @@
 #include "C2RKLog.h"
 #include "C2RKMediaUtils.h"
 #include "C2RKRgaDef.h"
-#include "C2RKFbcDef.h"
+#include "C2RKChipFeaturesDef.h"
 #include "C2RKGrallocDef.h"
 #include "C2RKColorAspects.h"
 #include "C2RKNalParser.h"
 #include "C2RKVersion.h"
 #include "C2RKEnv.h"
+#include "C2VdecExtendFeature.h"
 
 namespace android {
 
@@ -531,6 +532,7 @@ C2RKMpiDec::C2RKMpiDec(
       mSignalledError(false),
       mLowLatencyMode(false),
       mGraphicBufferSource(false),
+      mScaleEnabled(false),
       mBufferMode(false) {
     if (!C2RKMediaUtils::getCodingTypeFromComponentName(name, &mCodingType)) {
         c2_err("failed to get codingType from component %s", name);
@@ -720,7 +722,7 @@ c2_status_t C2RKMpiDec::initDecoder(const std::unique_ptr<C2Work> &work) {
         uint32_t mppFmt = mColorFormat;
 
         if (checkPreferFbcOutput(work)) {
-            mFbcCfg.mode = C2RKFbcDef::getFbcOutputMode(mCodingType);
+            mFbcCfg.mode = C2RKChipFeaturesDef::getFbcOutputMode(mCodingType);
             if (mFbcCfg.mode) {
                 c2_info("use mpp fbc output mode");
                 mppFmt |= MPP_FRAME_FBC_AFBC_V2;
@@ -774,7 +776,7 @@ c2_status_t C2RKMpiDec::initDecoder(const std::unique_ptr<C2Work> &work) {
 
     /* fbc decode output has padding inside, set crop before display */
     if (mFbcCfg.mode) {
-        C2RKFbcDef::getFbcOutputOffset(mCodingType,
+        C2RKChipFeaturesDef::getFbcOutputOffset(mCodingType,
                                        &mFbcCfg.paddingX,
                                        &mFbcCfg.paddingY);
         c2_info("fbc padding offset(%d, %d)", mFbcCfg.paddingX, mFbcCfg.paddingY);
@@ -1373,6 +1375,39 @@ REDO:
         ret = C2_OK;
     }
 
+    if (mScaleEnabled && outblock && outblock->handle()
+          && mpp_frame_has_meta(frame) && mpp_frame_get_thumbnail_en(frame)) {
+        MppMeta meta = NULL;
+        int32_t scaleYOffset = 0;
+        int32_t scaleUVOffset = 0;
+        C2PreScaleParam scaleParam;
+
+        memset(&scaleParam, 0, sizeof(C2PreScaleParam));
+
+        native_handle_t *nHandle = UnwrapNativeCodec2GrallocHandle(outblock->handle());
+
+        meta = mpp_frame_get_meta(frame);
+        mpp_meta_get_s32(meta, KEY_DEC_TBN_Y_OFFSET, &scaleYOffset);
+        mpp_meta_get_s32(meta, KEY_DEC_TBN_UV_OFFSET, &scaleUVOffset);
+
+        scaleParam.thumbWidth = width >> 1;
+        scaleParam.thumbHeight = height >> 1;
+        scaleParam.thumbHorStride = C2_ALIGN(mHorStride >> 1, 16);
+        scaleParam.yOffset = scaleYOffset;
+        scaleParam.uvOffset = scaleUVOffset;
+        if ((format & MPP_FRAME_FMT_MASK) == MPP_FMT_YUV420SP_10BIT) {
+            scaleParam.format = HAL_PIXEL_FORMAT_YCrCb_NV12_10;
+        } else {
+            scaleParam.format = HAL_PIXEL_FORMAT_YCrCb_NV12;
+        }
+        C2VdecExtendFeature::configFrameScaleMeta(nHandle, &scaleParam);
+        memcpy((void *)&outblock->handle()->data,
+               (void *)&nHandle->data,
+               sizeof(int) * (nHandle->numFds + nHandle->numInts));
+
+        native_handle_delete(nHandle);
+    }
+
 exit:
     if (frame) {
         mpp_frame_deinit(&frame);
@@ -1394,6 +1429,23 @@ c2_status_t C2RKMpiDec::commitBufferToMpp(std::shared_ptr<C2GraphicBlock> block)
     auto c2Handle = block->handle();
     uint32_t fd = c2Handle->data[0];
 
+    if (!mScaleEnabled && C2RKChipFeaturesDef::getScaleMetaCap()) {
+        native_handle_t *nHandle = UnwrapNativeCodec2GrallocHandle(c2Handle);
+        int enable = C2VdecExtendFeature::checkNeedScale((buffer_handle_t)nHandle);
+        if (enable == 1) {
+            MppDecCfg cfg;
+            mpp_dec_cfg_init(&cfg);
+            mMppMpi->control(mMppCtx, MPP_DEC_GET_CFG, cfg);
+            if(!mpp_dec_cfg_set_u32(cfg, "base:enable_thumbnail", enable)) {
+                mScaleEnabled = true;
+            }
+            mMppMpi->control(mMppCtx, MPP_DEC_SET_CFG, cfg);
+            mpp_dec_cfg_deinit(cfg);
+            c2_info("enable scale dec %d.", enable);
+        }
+        native_handle_delete(nHandle);
+    }
+
     uint32_t bqSlot, width, height, format, stride, generation;
     uint64_t usage, bqId;
 
@@ -1402,7 +1454,7 @@ c2_status_t C2RKMpiDec::commitBufferToMpp(std::shared_ptr<C2GraphicBlock> block)
                 &stride, &generation, &bqId, &bqSlot);
     if (mGeneration == 0) {
         mGeneration = generation;
-        mGenerationCount = 1;	
+        mGenerationCount = 1;
     } else if (mGeneration != generation) {
         c2_info("change generation");
         mGenerationChange = true;
@@ -1549,6 +1601,9 @@ c2_status_t C2RKMpiDec::ensureDecoderState(
     // error. So we need clear high 32 bit.
     if (mGrallocVersion < 4) {
         usage &= 0xffffffff;
+    }
+    if (mScaleEnabled) {
+        usage |= GRALLOC_USAGE_RKVDEC_SCALING;
     }
 
     /*

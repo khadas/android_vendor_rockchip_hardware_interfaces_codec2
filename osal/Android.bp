@@ -7,16 +7,19 @@ cc_library_static {
         "C2RKLog.cpp",
         "C2RKDump.cpp",
         "C2RKEnv.cpp",
-        "C2RKFbcDef.cpp",
+        "C2RKChipFeaturesDef.cpp",
         "C2RKRgaDef.cpp",
         "C2RKMediaUtils.cpp",
         "C2RKGrallocDef.cpp",
         "C2RKNalParser.cpp",
+        "C2VdecExtendFeature.cpp",
     ],
 
     shared_libs: [
         "liblog",
+        "libui",
         "libutils",
+        "libhardware",
         "libstagefright_foundation",
         "libsfplugin_ccodec_utils",
         "librga",
@@ -27,6 +30,10 @@ cc_library_static {
         "vendor/rockchip/hardware/interfaces/codec2/osal/include",
         "hardware/rockchip/librga/include",
         "hardware/rockchip/librga/im2d_api",
+    ],
+
+    export_shared_lib_headers: [
+        "libui",
     ],
 
     header_libs: [
