@@ -109,53 +109,11 @@ private:
         Interface(const std::shared_ptr<C2ReflectorHelper> &helper)
             : C2InterfaceHelper(helper) {
             setDerivedInstance(this);
-
-            addParameter(
-                DefineParam(mIonUsageInfo, "ion-usage")
-                .withDefault(new C2StoreIonUsageInfo())
-                .withFields({
-                    C2F(mIonUsageInfo, usage).flags(
-                            {C2MemoryUsage::CPU_READ | C2MemoryUsage::CPU_WRITE}),
-                    C2F(mIonUsageInfo, capacity).inRange(0, UINT32_MAX, 1024),
-                    C2F(mIonUsageInfo, heapMask).any(),
-                    C2F(mIonUsageInfo, allocFlags).flags({}),
-                    C2F(mIonUsageInfo, minAlignment).equalTo(0)
-                })
-                .withSetter(SetIonUsage)
-                .build());
-
-            addParameter(
-                DefineParam(mDmaBufUsageInfo, "dmabuf-usage")
-                .withDefault(C2StoreDmaBufUsageInfo::AllocShared(0))
-                .withFields({
-                    C2F(mDmaBufUsageInfo, m.usage).flags(
-                            {C2MemoryUsage::CPU_READ | C2MemoryUsage::CPU_WRITE}),
-                    C2F(mDmaBufUsageInfo, m.capacity).inRange(0, UINT32_MAX, 1024),
-                    C2F(mDmaBufUsageInfo, m.heapName).any(),
-                    C2F(mDmaBufUsageInfo, m.allocFlags).flags({}),
-                })
-                .withSetter(SetDmaBufUsage)
-                .build());
         }
 
         virtual ~Interface() = default;
 
     private:
-        static C2R SetIonUsage(bool /* mayBlock */, C2P<C2StoreIonUsageInfo> &me) {
-            // Vendor's TODO: put appropriate mapping logic
-            me.set().heapMask = ~0;
-            me.set().allocFlags = 0;
-            me.set().minAlignment = 0;
-            return C2R::Ok();
-        }
-
-        static C2R SetDmaBufUsage(bool /* mayBlock */, C2P<C2StoreDmaBufUsageInfo> &me) {
-            // Vendor's TODO: put appropriate mapping logic
-            strncpy(me.set().m.heapName, "system", me.v.flexCount());
-            me.set().m.allocFlags = 0;
-            return C2R::Ok();
-        }
-
         std::shared_ptr<C2StoreIonUsageInfo> mIonUsageInfo;
         std::shared_ptr<C2StoreDmaBufUsageInfo> mDmaBufUsageInfo;
     };

@@ -729,52 +729,6 @@ private:
         Interface(std::shared_ptr<C2ReflectorHelper> reflector)
             : C2InterfaceHelper(reflector) {
             setDerivedInstance(this);
-
-            struct Setter {
-                static C2R setIonUsage(bool /* mayBlock */, C2P<C2StoreIonUsageInfo> &me) {
-                    me.set().heapMask = ~0;
-                    me.set().allocFlags = 0;
-                    me.set().minAlignment = 0;
-                    return C2R::Ok();
-                }
-
-                static C2R setDmaBufUsage(bool /* mayBlock */, C2P<C2StoreDmaBufUsageInfo> &me) {
-                    long long usage = (long long)me.get().m.usage;
-                    if (C2DmaBufAllocator::system_uncached_supported() &&
-                        !(usage & (C2MemoryUsage::CPU_READ | C2MemoryUsage::CPU_WRITE))) {
-                        strncpy(me.set().m.heapName, "system-uncached", me.v.flexCount());
-                    } else {
-                        strncpy(me.set().m.heapName, "system", me.v.flexCount());
-                    }
-                    me.set().m.allocFlags = 0;
-                    return C2R::Ok();
-                };
-            };
-
-            addParameter(
-                DefineParam(mIonUsageInfo, "ion-usage")
-                .withDefault(new C2StoreIonUsageInfo())
-                .withFields({
-                    C2F(mIonUsageInfo, usage).flags({C2MemoryUsage::CPU_READ | C2MemoryUsage::CPU_WRITE}),
-                    C2F(mIonUsageInfo, capacity).inRange(0, UINT32_MAX, 1024),
-                    C2F(mIonUsageInfo, heapMask).any(),
-                    C2F(mIonUsageInfo, allocFlags).flags({}),
-                    C2F(mIonUsageInfo, minAlignment).equalTo(0)
-                })
-                .withSetter(Setter::setIonUsage)
-                .build());
-
-            addParameter(
-                DefineParam(mDmaBufUsageInfo, "dmabuf-usage")
-                .withDefault(C2StoreDmaBufUsageInfo::AllocShared(0))
-                .withFields({
-                    C2F(mDmaBufUsageInfo, m.usage).flags({C2MemoryUsage::CPU_READ | C2MemoryUsage::CPU_WRITE}),
-                    C2F(mDmaBufUsageInfo, m.capacity).inRange(0, UINT32_MAX, 1024),
-                    C2F(mDmaBufUsageInfo, m.allocFlags).flags({}),
-                    C2F(mDmaBufUsageInfo, m.heapName).any(),
-                })
-                .withSetter(Setter::setDmaBufUsage)
-                .build());
         }
     };
 
@@ -1094,7 +1048,12 @@ c2_status_t C2RKComponentStore::querySupportedParams_nb(
 
 c2_status_t C2RKComponentStore::querySupportedValues_sm(
         std::vector<C2FieldSupportedValuesQuery> &fields) const {
-    return mInterface.querySupportedValues(fields, C2_MAY_BLOCK);
+    mInterface.querySupportedValues(fields, C2_MAY_BLOCK);
+    for (C2FieldSupportedValuesQuery &query : fields) {
+        if (query.status == C2_OK)
+            return C2_OK;
+    }
+    return C2_OMITTED;
 }
 
 C2String C2RKComponentStore::getName() const {
