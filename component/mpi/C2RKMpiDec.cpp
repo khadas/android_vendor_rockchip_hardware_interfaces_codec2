@@ -686,6 +686,9 @@ c2_status_t C2RKMpiDec::initDecoder(const std::unique_ptr<C2Work> &work) {
         // enable fast mode,
         uint32_t fastParser = 1;
         mMppMpi->control(mMppCtx, MPP_DEC_SET_PARSER_FAST_MODE, &fastParser);
+
+        uint32_t disableErr = 1;
+        mMppMpi->control(mMppCtx, MPP_DEC_SET_DISABLE_ERROR, &disableErr);
     }
 
     err = mpp_init(mMppCtx, MPP_CTX_DEC, mCodingType);
