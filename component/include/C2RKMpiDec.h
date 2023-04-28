@@ -107,7 +107,6 @@ private:
     bool mSignalledError;
     bool mLowLatencyMode;
     bool mGraphicBufferSource;
-
     bool mScaleEnabled;
 
     /*
@@ -163,6 +162,9 @@ private:
     c2_status_t commitBufferToMpp(std::shared_ptr<C2GraphicBlock> block);
     c2_status_t ensureDecoderState(const std::shared_ptr<C2BlockPool> &pool);
     c2_status_t updateOutputDelay();
+
+    c2_status_t updateScaleCfg(std::shared_ptr<C2GraphicBlock> block);
+    c2_status_t configFrameScaleMeta(MppFrame frame, std::shared_ptr<C2GraphicBlock> block);
 
     /*
      * OutBuffer vector operations

@@ -777,8 +777,8 @@ c2_status_t C2RKMpiDec::initDecoder(const std::unique_ptr<C2Work> &work) {
     /* fbc decode output has padding inside, set crop before display */
     if (mFbcCfg.mode) {
         C2RKChipFeaturesDef::getFbcOutputOffset(mCodingType,
-                                       &mFbcCfg.paddingX,
-                                       &mFbcCfg.paddingY);
+                                                &mFbcCfg.paddingX,
+                                                &mFbcCfg.paddingY);
         c2_info("fbc padding offset(%d, %d)", mFbcCfg.paddingX, mFbcCfg.paddingY);
     }
 
@@ -1299,7 +1299,7 @@ REDO:
 
         ret = C2_NO_MEMORY;
     } else {
-        uint32_t err  = mpp_frame_get_errinfo(frame);
+        uint32_t err = mpp_frame_get_errinfo(frame);
         uint32_t eos = mpp_frame_get_eos(frame);
         MppBuffer mppBuffer = mpp_frame_get_buffer(frame);
         pts = mpp_frame_get_pts(frame);
@@ -1363,6 +1363,10 @@ REDO:
             getVuiParams(frame);
         }
 
+        if (mScaleEnabled) {
+            configFrameScaleMeta(frame, outblock);
+        }
+
         /* dump output data if neccessary */
         if (C2RKDump::getDumpFlag() & C2_DUMP_RECORD_OUT) {
             void *data = mpp_buffer_get_ptr(mppBuffer);
@@ -1373,39 +1377,6 @@ REDO:
         mDump->showDebugFps(DUMP_ROLE_OUTPUT);
 
         ret = C2_OK;
-    }
-
-    if (mScaleEnabled && outblock && outblock->handle()
-          && mpp_frame_has_meta(frame) && mpp_frame_get_thumbnail_en(frame)) {
-        MppMeta meta = NULL;
-        int32_t scaleYOffset = 0;
-        int32_t scaleUVOffset = 0;
-        C2PreScaleParam scaleParam;
-
-        memset(&scaleParam, 0, sizeof(C2PreScaleParam));
-
-        native_handle_t *nHandle = UnwrapNativeCodec2GrallocHandle(outblock->handle());
-
-        meta = mpp_frame_get_meta(frame);
-        mpp_meta_get_s32(meta, KEY_DEC_TBN_Y_OFFSET, &scaleYOffset);
-        mpp_meta_get_s32(meta, KEY_DEC_TBN_UV_OFFSET, &scaleUVOffset);
-
-        scaleParam.thumbWidth = width >> 1;
-        scaleParam.thumbHeight = height >> 1;
-        scaleParam.thumbHorStride = C2_ALIGN(mHorStride >> 1, 16);
-        scaleParam.yOffset = scaleYOffset;
-        scaleParam.uvOffset = scaleUVOffset;
-        if ((format & MPP_FRAME_FMT_MASK) == MPP_FMT_YUV420SP_10BIT) {
-            scaleParam.format = HAL_PIXEL_FORMAT_YCrCb_NV12_10;
-        } else {
-            scaleParam.format = HAL_PIXEL_FORMAT_YCrCb_NV12;
-        }
-        C2VdecExtendFeature::configFrameScaleMeta(nHandle, &scaleParam);
-        memcpy((void *)&outblock->handle()->data,
-               (void *)&nHandle->data,
-               sizeof(int) * (nHandle->numFds + nHandle->numInts));
-
-        native_handle_delete(nHandle);
     }
 
 exit:
@@ -1426,25 +1397,12 @@ c2_status_t C2RKMpiDec::commitBufferToMpp(std::shared_ptr<C2GraphicBlock> block)
         return C2_CORRUPTED;
     }
 
+    if (!mScaleEnabled) {
+        updateScaleCfg(block);
+    }
+
     auto c2Handle = block->handle();
     uint32_t fd = c2Handle->data[0];
-
-    if (!mScaleEnabled && C2RKChipFeaturesDef::getScaleMetaCap()) {
-        native_handle_t *nHandle = UnwrapNativeCodec2GrallocHandle(c2Handle);
-        int enable = C2VdecExtendFeature::checkNeedScale((buffer_handle_t)nHandle);
-        if (enable == 1) {
-            MppDecCfg cfg;
-            mpp_dec_cfg_init(&cfg);
-            mMppMpi->control(mMppCtx, MPP_DEC_GET_CFG, cfg);
-            if(!mpp_dec_cfg_set_u32(cfg, "base:enable_thumbnail", enable)) {
-                mScaleEnabled = true;
-            }
-            mMppMpi->control(mMppCtx, MPP_DEC_SET_CFG, cfg);
-            mpp_dec_cfg_deinit(cfg);
-            c2_info("enable scale dec %d.", enable);
-        }
-        native_handle_delete(nHandle);
-    }
 
     uint32_t bqSlot, width, height, format, stride, generation;
     uint64_t usage, bqId;
@@ -1499,7 +1457,8 @@ c2_status_t C2RKMpiDec::commitBufferToMpp(std::shared_ptr<C2GraphicBlock> block)
         buffer->block = block;
         buffer->site = BUFFER_SITE_BY_MPI;
 
-        c2_trace("put this buffer: generation %d bpId 0x%llx slot %d fd %d buf %p", generation, bqId, bqSlot, fd, mppBuffer);
+        c2_trace("put this buffer: generation %d bpId 0x%llx slot %d fd %d buf %p",
+                 generation, bqId, bqSlot, fd, mppBuffer);
     } else {
         /* register this buffer to mpp group */
         MppBuffer mppBuffer;
@@ -1681,6 +1640,74 @@ c2_status_t C2RKMpiDec::updateOutputDelay() {
 
     return err;
 }
+
+c2_status_t C2RKMpiDec::updateScaleCfg(std::shared_ptr<C2GraphicBlock> block) {
+    if (!mScaleEnabled && C2RKChipFeaturesDef::getScaleMetaCap()) {
+        auto c2Handle = block->handle();
+
+        native_handle_t *nHandle = UnwrapNativeCodec2GrallocHandle(c2Handle);
+        int enable = C2VdecExtendFeature::checkNeedScale((buffer_handle_t)nHandle);
+        if (enable == 1) {
+            MppDecCfg cfg;
+            mpp_dec_cfg_init(&cfg);
+            mMppMpi->control(mMppCtx, MPP_DEC_GET_CFG, cfg);
+            if(!mpp_dec_cfg_set_u32(cfg, "base:enable_thumbnail", enable)) {
+                mScaleEnabled = true;
+            }
+            mMppMpi->control(mMppCtx, MPP_DEC_SET_CFG, cfg);
+            mpp_dec_cfg_deinit(cfg);
+            c2_info("enable scale dec %d.", enable);
+        }
+        native_handle_delete(nHandle);
+    }
+
+    return C2_OK;
+}
+
+c2_status_t C2RKMpiDec::configFrameScaleMeta(
+        MppFrame frame, std::shared_ptr<C2GraphicBlock> block) {
+    if (block && block->handle()
+          && mpp_frame_has_meta(frame) && mpp_frame_get_thumbnail_en(frame)) {
+        MppMeta meta = NULL;
+        int32_t scaleYOffset = 0;
+        int32_t scaleUVOffset = 0;
+        int32_t width = 0, height = 0;
+        MppFrameFormat format;
+        C2PreScaleParam scaleParam;
+
+        memset(&scaleParam, 0, sizeof(C2PreScaleParam));
+
+        native_handle_t *nHandle = UnwrapNativeCodec2GrallocHandle(block->handle());
+
+        width  = mpp_frame_get_width(frame);
+        height = mpp_frame_get_height(frame);
+        format = mpp_frame_get_fmt(frame);
+        meta   = mpp_frame_get_meta(frame);
+
+        mpp_meta_get_s32(meta, KEY_DEC_TBN_Y_OFFSET, &scaleYOffset);
+        mpp_meta_get_s32(meta, KEY_DEC_TBN_UV_OFFSET, &scaleUVOffset);
+
+        scaleParam.thumbWidth = width >> 1;
+        scaleParam.thumbHeight = height >> 1;
+        scaleParam.thumbHorStride = C2_ALIGN(mHorStride >> 1, 16);
+        scaleParam.yOffset = scaleYOffset;
+        scaleParam.uvOffset = scaleUVOffset;
+        if ((format & MPP_FRAME_FMT_MASK) == MPP_FMT_YUV420SP_10BIT) {
+            scaleParam.format = HAL_PIXEL_FORMAT_YCrCb_NV12_10;
+        } else {
+            scaleParam.format = HAL_PIXEL_FORMAT_YCrCb_NV12;
+        }
+        C2VdecExtendFeature::configFrameScaleMeta(nHandle, &scaleParam);
+        memcpy((void *)&block->handle()->data,
+               (void *)&nHandle->data,
+               sizeof(int) * (nHandle->numFds + nHandle->numInts));
+
+        native_handle_delete(nHandle);
+    }
+
+    return C2_OK;
+}
+
 
 class C2RKMpiDecFactory : public C2ComponentFactory {
 public:
