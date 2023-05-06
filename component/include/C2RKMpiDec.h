@@ -51,7 +51,7 @@ public:
             const std::shared_ptr<C2BlockPool> &pool) override;
 
 private:
-    enum OutBufferSite{
+    enum OutBufferSite {
         BUFFER_SITE_BY_MPI = 0,
         BUFFER_SITE_BY_C2,
         BUFFER_SITE_BY_ABANDON,

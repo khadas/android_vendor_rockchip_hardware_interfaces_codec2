@@ -30,6 +30,8 @@
 
 #define MAX_SOC_NAME_LENGTH 1024
 
+static RKChipInfo *sChipInfo = NULL;
+
 RKChipInfo* match(char *buf) {
     int size = sizeof(ChipList) / sizeof((ChipList)[0]);
 
@@ -126,20 +128,22 @@ RKChipInfo* readEfuse() {
 }
 
 RKChipInfo* getChipName() {
-    RKChipInfo* infor = readEfuse();
-    if (infor != NULL) {
-        return infor;
+    if (!sChipInfo) {
+        sChipInfo = readEfuse();
+        if (sChipInfo != NULL) {
+            return sChipInfo;
+        }
+
+        sChipInfo = readDeviceTree();
+        if (sChipInfo !=NULL) {
+            return sChipInfo;
+        }
+
+        sChipInfo = readCpuInforNode();
+        if (sChipInfo != NULL) {
+            return sChipInfo;
+        }
     }
 
-    infor = readDeviceTree();
-    if (infor != NULL) {
-        return infor;
-    }
-
-    infor = readCpuInforNode();
-    if (infor != NULL) {
-        return infor;
-    }
-
-    return NULL;
+    return sChipInfo;
 }
