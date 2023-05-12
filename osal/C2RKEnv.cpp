@@ -67,7 +67,7 @@ bool Rockchip_C2_SetEnvU32(const char *name, uint32_t value)
 {
     bool ret = true;
     char buf[PROP_VALUE_MAX + 1];
-    snprintf(buf, sizeof(buf), "%d", value);
+    snprintf(buf, sizeof(buf), "%u", value);
     int len = __system_property_set(name, buf);
     if (len <= 0) {
         c2_err("property set failed!");

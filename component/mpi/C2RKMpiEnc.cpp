@@ -1024,7 +1024,7 @@ c2_status_t C2RKMpiEnc::setupSceneMode() {
 }
 
 c2_status_t C2RKMpiEnc::setupFrameRate() {
-    float frameRate = 0.0;
+    float frameRate = 0.0f;
     uint32_t idrInterval = 0, gop = 0;
 
     IntfImpl::Lock lock = mIntf->lock();
@@ -1491,7 +1491,6 @@ c2_status_t C2RKMpiEnc::setupTemporalLayers() {
 }
 
 c2_status_t C2RKMpiEnc::setupPrependHeaderSetting() {
-    int ret = 0;
     std::shared_ptr<C2PrependHeaderModeSetting> prepend;
 
     IntfImpl::Lock lock = mIntf->lock();
@@ -1501,7 +1500,7 @@ c2_status_t C2RKMpiEnc::setupPrependHeaderSetting() {
     if (prepend->value == C2Config::PREPEND_HEADER_TO_ALL_SYNC) {
         c2_info("setupPrependHeaderSetting: prepend sps pps to idr frames.");
         MppEncHeaderMode mode = MPP_ENC_HEADER_MODE_EACH_IDR;
-        ret = mMppMpi->control(mMppCtx, MPP_ENC_SET_HEADER_MODE, &mode);
+        int ret = mMppMpi->control(mMppCtx, MPP_ENC_SET_HEADER_MODE, &mode);
         if (ret) {
             c2_err("setupPrependHeaderSetting: failed to set mode ret %d", ret);
             return C2_CORRUPTED;
@@ -2072,7 +2071,6 @@ void C2RKMpiEnc::process(
 
 c2_status_t C2RKMpiEnc::handleCommonDynamicCfg() {
     bool change = false;
-    int32_t err = 0;
 
     IntfImpl::Lock lock = mIntf->lock();
     std::shared_ptr<C2StreamPictureSizeInfo::input> size = mIntf->getSize_l();
@@ -2114,7 +2112,7 @@ c2_status_t C2RKMpiEnc::handleCommonDynamicCfg() {
     }
 
     if (change) {
-        err = mMppMpi->control(mMppCtx, MPP_ENC_SET_CFG, mEncCfg);
+        int32_t err = mMppMpi->control(mMppCtx, MPP_ENC_SET_CFG, mEncCfg);
         if (err) {
             c2_err("failed to setup dynamic config, ret %d", err);
         }
@@ -2507,7 +2505,7 @@ c2_status_t C2RKMpiEnc::getoutpacket(OutWorkEntry *entry) {
 
 class C2RKMpiEncFactory : public C2ComponentFactory {
 public:
-    C2RKMpiEncFactory(std::string componentName)
+    explicit C2RKMpiEncFactory(std::string componentName)
             : mHelper(std::static_pointer_cast<C2ReflectorHelper>(
                   GetCodec2PlatformComponentStore()->getParamReflector())),
               mComponentName(componentName) {

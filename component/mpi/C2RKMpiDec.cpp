@@ -825,14 +825,12 @@ bool C2RKMpiDec::checkPreferFbcOutput(const std::unique_ptr<C2Work> &work) {
     // kodi/photos/files does not transmit profile level(10bit etc) to C2, so
     // get bitDepth info from spspps in this case.
     if (work->input.flags & C2FrameData::FLAG_CODEC_CONFIG) {
-        uint8_t *inData = nullptr;
-        size_t inSize = 0u;
         C2ReadView rView = mDummyReadView;
         if (!work->input.buffers.empty()) {
             rView = work->input.buffers[0]->data().linearBlocks().front().map().get();
-            inData = const_cast<uint8_t *>(rView.data());
-            inSize = rView.capacity();
             if (!rView.error()) {
+                uint8_t *inData = const_cast<uint8_t *>(rView.data());
+                size_t inSize = rView.capacity();
                 int32_t depth = C2RKNalParser::getBitDepth(inData, inSize, mCodingType);
                 if (depth == 10) {
                     c2_info("get 10bit profile tag from spspps, prefer fbc output mode");
@@ -1711,7 +1709,7 @@ c2_status_t C2RKMpiDec::configFrameScaleMeta(
 
 class C2RKMpiDecFactory : public C2ComponentFactory {
 public:
-    C2RKMpiDecFactory(std::string componentName)
+    explicit C2RKMpiDecFactory(std::string componentName)
             : mHelper(std::static_pointer_cast<C2ReflectorHelper>(
                   GetCodec2PlatformComponentStore()->getParamReflector())),
               mComponentName(componentName) {

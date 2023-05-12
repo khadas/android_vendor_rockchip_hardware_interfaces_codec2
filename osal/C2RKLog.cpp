@@ -52,7 +52,7 @@ void _c2_log(uint32_t level, const char *tag, const char *fmt,
 
     if (C2RKDump::getDumpFlag() & C2_DUMP_LOG_DETAIL) {
         char line[MAX_LINE_LEN];
-        snprintf(line, sizeof(line), "{%-16.16s:%04d} %s\r\n", fname, row, fmt);
+        snprintf(line, sizeof(line), "{%-16.16s:%04u} %s\r\n", fname, row, fmt);
 
         __android_log_vprint(ALevel, tag, line, args);
     } else {

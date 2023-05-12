@@ -100,9 +100,7 @@ int32_t C2RKNalParser::getHevcBitDepth(void * ctx) {
 }
 
 void* C2RKNalParser::createBitCtx(void *buf, int32_t size) {
-    MyBitCtx_t *bitCtx = NULL;
-
-    bitCtx = (MyBitCtx_t *)malloc(sizeof(MyBitCtx_t));
+    MyBitCtx_t *bitCtx = (MyBitCtx_t *)malloc(sizeof(MyBitCtx_t));
     if (bitCtx == NULL) {
         c2_err("failed to alloc bitCtx");
         goto exit;

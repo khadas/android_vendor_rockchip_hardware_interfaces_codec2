@@ -164,15 +164,13 @@ void C2RKDump::showDebugFps(C2DumpRole role) {
         return;
     }
 
-    float fps = 0;
-
     nsecs_t now = systemTime();
     nsecs_t diff = now - mLastFpsTime[role];
 
     mFrameCount[role]++;
 
     if (diff > ms2ns(500)) {
-        fps = ((mFrameCount[role] - mLastFrameCount[role]) * float(s2ns(1))) / diff;
+        float fps = ((mFrameCount[role] - mLastFrameCount[role]) * float(s2ns(1))) / diff;
         mLastFpsTime[role] = now;
         mLastFrameCount[role] = mFrameCount[role];
         c2_info("[%s] %s frameCount %d fps = %2.3f", mIsEncoder ? "enc" : "dec",

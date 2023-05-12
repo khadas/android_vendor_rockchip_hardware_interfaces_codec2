@@ -84,15 +84,14 @@ RKChipInfo* readCpuInforNode() {
     }
 
     char buffer[MAX_SOC_NAME_LENGTH] = {0};
-    char name[128];
-    char* ptr = NULL;
     RKChipInfo* infor = NULL;
 
     int length = read(fd, buffer, MAX_SOC_NAME_LENGTH - 1);
     if (length > 0) {
-        ptr = strstr(buffer, "Hardware");
+        char* ptr = strstr(buffer, "Hardware");
         if (ptr != NULL) {
-            sscanf(ptr, "Hardware\t: Rockchip %s", name);
+            char name[128];
+            sscanf(ptr, "Hardware\t: Rockchip %30s", name);
 
             infor = match(name);
             if (infor == NULL) {

@@ -34,14 +34,13 @@ C2RKMlvecLegacy::~C2RKMlvecLegacy() {
 }
 
 bool C2RKMlvecLegacy::setupMaxTid(int32_t maxTid) {
-    int ret = 0;
-
     MppEncRefLtFrmCfg ltRef[16];
     MppEncRefStFrmCfg stRef[16];
     int32_t ltCfgCnt = 0;
     int32_t stCfgCnt = 0;
     int32_t tid0Loop = 0;
     int32_t numLtrFrms = mStaticCfg.ltrFrames;
+    int ret;
 
     memset(ltRef, 0, sizeof(ltRef));
     memset(stRef, 0, sizeof(stRef));
@@ -207,11 +206,11 @@ bool C2RKMlvecLegacy::setupMaxTid(int32_t maxTid) {
 
         mpp_enc_ref_cfg_init(&ref);
 
-        ret = mpp_enc_ref_cfg_set_cfg_cnt(ref, ltCfgCnt, stCfgCnt);
-        ret = mpp_enc_ref_cfg_add_lt_cfg(ref, ltCfgCnt, ltRef);
-        ret = mpp_enc_ref_cfg_add_st_cfg(ref, stCfgCnt, stRef);
-        ret = mpp_enc_ref_cfg_set_keep_cpb(ref, 1);
-        ret = mpp_enc_ref_cfg_check(ref);
+        mpp_enc_ref_cfg_set_cfg_cnt(ref, ltCfgCnt, stCfgCnt);
+        mpp_enc_ref_cfg_add_lt_cfg(ref, ltCfgCnt, ltRef);
+        mpp_enc_ref_cfg_add_st_cfg(ref, stCfgCnt, stRef);
+        mpp_enc_ref_cfg_set_keep_cpb(ref, 1);
+        mpp_enc_ref_cfg_check(ref);
 
         ret = mMppMpi->control(mMppCtx, MPP_ENC_SET_REF_CFG, ref);
         if (ret) {
