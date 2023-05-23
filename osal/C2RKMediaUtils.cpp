@@ -217,7 +217,7 @@ uint32_t C2RKMediaUtils::calculateOutputDelay(
             }
         }
         outputDelay = maxDpbPixs / (width * height);
-        outputDelay = C2_CLIP(outputDelay, AVC_MIN_OUTPUT_DELAY, MAX_OUTPUT_DELAY);
+        outputDelay = C2_CLIP(outputDelay, AVC_MIN_OUTPUT_DELAY, AVC_MAX_OUTPUT_DELAY);
         if (width <= 1920 || height <= 1920) {
             // reserved for deinterlace
             outputDelay += IEP_MAX_OUTPUT_DELAY;
@@ -232,7 +232,7 @@ uint32_t C2RKMediaUtils::calculateOutputDelay(
             }
         }
         outputDelay = maxDpbPixs / (width * height);
-        outputDelay = C2_CLIP(outputDelay, HEVC_MIN_OUTPUT_DELAY, MAX_OUTPUT_DELAY);
+        outputDelay = C2_CLIP(outputDelay, HEVC_MIN_OUTPUT_DELAY, HEVC_MAX_OUTPUT_DELAY);
       } break;
       case MPP_VIDEO_CodingVP9: {
         // default max Dpb Mbs is level 5.1
@@ -249,8 +249,8 @@ uint32_t C2RKMediaUtils::calculateOutputDelay(
         outputDelay = AV1_OUTPUT_DELAY;
         break;
       default: {
-        c2_err("use default ref frame count(%d) with no CodecID", DEFAULT_OUTPUT_DELAY);
-        outputDelay = DEFAULT_OUTPUT_DELAY;
+        c2_err("use default ref frame count(%d) with no CodecID", C2_DEFAULT_OUTPUT_DELAY);
+        outputDelay = C2_DEFAULT_OUTPUT_DELAY;
       }
     }
 

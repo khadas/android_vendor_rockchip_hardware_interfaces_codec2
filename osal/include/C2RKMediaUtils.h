@@ -32,14 +32,17 @@ extern std::atomic<int32_t> sEncConcurrentInstances;
 #define kMaxEncConcurrentInstances     32
 
 #define AVC_MIN_OUTPUT_DELAY            4
+#define AVC_MAX_OUTPUT_DELAY           16
 #define HEVC_MIN_OUTPUT_DELAY           6
+#define HEVC_MAX_OUTPUT_DELAY          16
 #define VP9_MIN_OUTPUT_DELAY            4
 #define VP9_MAX_OUTPUT_DELAY            8
 #define AV1_OUTPUT_DELAY               10
 #define IEP_MAX_OUTPUT_DELAY            5
 
-#define DEFAULT_OUTPUT_DELAY           12
-#define MAX_OUTPUT_DELAY               16
+#define C2_DEFAULT_OUTPUT_DELAY        12
+#define C2_MAX_OUTPUT_DELAY            21
+
 
 #define C2_SAFE_FREE(p) { if (p) {free(p); (p)=NULL;} }
 #define C2_ALIGN(x, a)         (((x)+(a)-1)&~((a)-1))

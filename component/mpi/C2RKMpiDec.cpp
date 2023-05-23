@@ -60,8 +60,8 @@ public:
         : C2RKInterface<void>::BaseParams(helper, name, kind, domain, mediaType) {
         addParameter(
                 DefineParam(mActualOutputDelay, C2_PARAMKEY_OUTPUT_DELAY)
-                .withDefault(new C2PortActualDelayTuning::output(DEFAULT_OUTPUT_DELAY))
-                .withFields({C2F(mActualOutputDelay, value).inRange(0, MAX_OUTPUT_DELAY)})
+                .withDefault(new C2PortActualDelayTuning::output(C2_DEFAULT_OUTPUT_DELAY))
+                .withFields({C2F(mActualOutputDelay, value).inRange(0, C2_MAX_OUTPUT_DELAY)})
                 .withSetter(Setter<decltype(*mActualOutputDelay)>::StrictValueWithNoDeps)
                 .build());
 
