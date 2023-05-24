@@ -97,8 +97,6 @@ private:
     uint32_t mRange;
     int64_t  mLastPts;
     uint32_t mGeneration;
-    bool     mGenerationChange;
-    uint32_t mGenerationCount;
 
     bool mStarted;
     bool mFlushed;
@@ -159,6 +157,7 @@ private:
             uint8_t *data, size_t size, uint64_t pts, uint32_t flags);
     c2_status_t getoutframe(OutWorkEntry *entry, bool needGetFrame);
 
+    c2_status_t checkSurfaceConfig(std::shared_ptr<C2GraphicBlock> block);
     c2_status_t commitBufferToMpp(std::shared_ptr<C2GraphicBlock> block);
     c2_status_t ensureDecoderState(const std::shared_ptr<C2BlockPool> &pool);
     c2_status_t updateOutputDelay();
@@ -203,13 +202,18 @@ private:
     }
 
     void clearOldGenerationOutBuffers(uint32_t generation) {
-        while (!mOutBuffers.isEmpty()) {
-            OutBuffer *buffer = mOutBuffers.editItemAt(0);
-            if (buffer != NULL && buffer->generation != generation) {
+        Vector<OutBuffer*>::iterator it = mOutBuffers.begin();
+        for (; it != mOutBuffers.end(); ) {
+            OutBuffer *buffer = static_cast<OutBuffer*>(*it);
+            if (buffer && buffer->generation != generation) {
+                if (buffer->site != BUFFER_SITE_BY_MPI) {
+                    mpp_buffer_put(buffer->mppBuffer);
+                }
+                buffer->block.reset();
                 delete buffer;
-                mOutBuffers.removeAt(0);
+                it = mOutBuffers.erase(it);
             } else {
-                break;
+                it++;
             }
         }
     }

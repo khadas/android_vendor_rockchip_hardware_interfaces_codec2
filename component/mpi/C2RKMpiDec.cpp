@@ -47,8 +47,6 @@ constexpr uint32_t kMaxVideoHeight = 4320;
 
 constexpr size_t kMinInputBufferSize = 2 * 1024 * 1024;
 
-constexpr uint32_t kMaxGegerationClearCount = 100;
-
 class C2RKMpiDec::IntfImpl : public C2RKInterface<void>::BaseParams {
 public:
     explicit IntfImpl(
@@ -523,8 +521,6 @@ C2RKMpiDec::C2RKMpiDec(
       mGrallocVersion(0),
       mLastPts(-1),
       mGeneration(0),
-      mGenerationChange(false),
-      mGenerationCount(0),
       mStarted(false),
       mFlushed(true),
       mOutputEos(false),
@@ -1340,7 +1336,7 @@ REDO:
         } else {
             OutBuffer *outBuffer = findOutBuffer(mppBuffer);
             if (!outBuffer) {
-                c2_err("failed to find output buffer %p", mppBuffer);
+                c2_warn("get outdated mppBuffer %p, release it", mppBuffer);
                 if (frame) {
                     mpp_frame_deinit(&frame);
                     frame = nullptr;
@@ -1350,7 +1346,6 @@ REDO:
             }
             mpp_buffer_inc_ref(mppBuffer);
             outBuffer->site = BUFFER_SITE_BY_C2;
-
             outblock = outBuffer->block;
         }
 
@@ -1388,16 +1383,34 @@ exit:
     return ret;
 }
 
-c2_status_t C2RKMpiDec::commitBufferToMpp(std::shared_ptr<C2GraphicBlock> block) {
-    if (!block.get()) {
-        c2_err("failed to get block");
-        return C2_CORRUPTED;
-    }
-
+c2_status_t C2RKMpiDec::checkSurfaceConfig(std::shared_ptr<C2GraphicBlock> block) {
     if (!mScaleEnabled) {
         updateScaleCfg(block);
     }
 
+    uint32_t bqSlot, width, height, format, stride, generation;
+    uint64_t usage, bqId;
+
+    auto c2Handle = block->handle();
+
+    android::_UnwrapNativeCodec2GrallocMetadata(
+                c2Handle, &width, &height, &format, &usage,
+                &stride, &generation, &bqId, &bqSlot);
+
+    if (mGeneration == 0) {
+        mGeneration = generation;
+    } else if (mGeneration != generation) {
+        c2_info("generation change to %d, clear old buffer", generation);
+        mpp_buffer_group_clear(mFrmGrp);
+        clearOldGenerationOutBuffers(generation);
+        mGeneration = generation;
+        return C2_NO_MEMORY;
+    }
+
+    return C2_OK;
+}
+
+c2_status_t C2RKMpiDec::commitBufferToMpp(std::shared_ptr<C2GraphicBlock> block) {
     auto c2Handle = block->handle();
     uint32_t fd = c2Handle->data[0];
 
@@ -1407,17 +1420,7 @@ c2_status_t C2RKMpiDec::commitBufferToMpp(std::shared_ptr<C2GraphicBlock> block)
     android::_UnwrapNativeCodec2GrallocMetadata(
                 c2Handle, &width, &height, &format, &usage,
                 &stride, &generation, &bqId, &bqSlot);
-    if (mGeneration == 0) {
-        mGeneration = generation;
-        mGenerationCount = 1;
-    } else if (mGeneration != generation) {
-        c2_info("change generation");
-        mGenerationChange = true;
-        mGeneration = generation;
-        mGenerationCount = 1;
-    } else {
-        mGenerationCount++;
-    }
+
     auto GetC2BlockSize
             = [c2Handle, width, height, format, usage, stride]() -> uint32_t {
         gralloc_private_handle_t pHandle;
@@ -1437,15 +1440,8 @@ c2_status_t C2RKMpiDec::commitBufferToMpp(std::shared_ptr<C2GraphicBlock> block)
         return pHandle.size;
     };
 
-
-    if (mGenerationCount > kMaxGegerationClearCount && mGenerationChange) {
-        c2_info("clear old generation buffer");
-        mGenerationChange = false;
-        clearOldGenerationOutBuffers(generation);
-    }
-
     OutBuffer *buffer = findOutBuffer(bqSlot);
-    if (buffer && buffer->generation == generation) {
+    if (buffer) {
         /* commit this buffer back to mpp */
         MppBuffer mppBuffer = buffer->mppBuffer;
         if (mppBuffer) {
@@ -1454,8 +1450,8 @@ c2_status_t C2RKMpiDec::commitBufferToMpp(std::shared_ptr<C2GraphicBlock> block)
         buffer->block = block;
         buffer->site = BUFFER_SITE_BY_MPI;
 
-        c2_trace("put this buffer: generation %d bpId 0x%llx slot %d fd %d buf %p",
-                 generation, bqId, bqSlot, fd, mppBuffer);
+        c2_trace("put this buffer, slot %d fd %d gene %d mppBuf %p",
+                 bqSlot, fd, generation, mppBuffer);
     } else {
         /* register this buffer to mpp group */
         MppBuffer mppBuffer;
@@ -1481,8 +1477,8 @@ c2_status_t C2RKMpiDec::commitBufferToMpp(std::shared_ptr<C2GraphicBlock> block)
 
         mOutBuffers.push(buffer);
 
-        c2_trace("import this buffer: slot %d fd %d size %d buf %p", bqSlot,
-                 fd, info.size, mppBuffer);
+        c2_trace("import this buffer, slot %d fd %d size %d mppBuf %p gene %d listSize %d",
+                 bqSlot, fd, info.size, mppBuffer, generation, mOutBuffers.size());
     }
 
     return C2_OK;
@@ -1585,10 +1581,10 @@ c2_status_t C2RKMpiDec::ensureDecoderState(
         }
     } else {
         std::shared_ptr<C2GraphicBlock> outblock;
-        uint32_t count = mIntf->mActualOutputDelay->value + 1 - getOutBufferCountOwnByMpi();
+        uint32_t count = mIntf->mActualOutputDelay->value - getOutBufferCountOwnByMpi();
 
         uint32_t i = 0;
-        for (i = 0; i < count; i++) {
+        while (i < count) {
             ret = pool->fetchGraphicBlock(blockW, blockH, format,
                                           C2AndroidMemoryUsage::FromGrallocUsage(usage),
                                           &outblock);
@@ -1597,12 +1593,17 @@ c2_status_t C2RKMpiDec::ensureDecoderState(
                 break;
             }
 
-            ret = commitBufferToMpp(outblock);
-            if (ret != C2_OK) {
-                c2_err("register buffer to mpp failed with status %d", ret);
-                break;
+            ret = checkSurfaceConfig(outblock);
+            if (ret == C2_NO_MEMORY) {
+                c2_info("get surface changed, update output buffer");
+                count = mIntf->mActualOutputDelay->value - getOutBufferCountOwnByMpi();
+                i = 0;
+            } else {
+                commitBufferToMpp(outblock);
+                i++;
             }
         }
+
         c2_trace("required (%dx%d) usage 0x%llx format 0x%x, fetch %d/%d",
                  blockW, blockH, usage, format, i, count);
     }
