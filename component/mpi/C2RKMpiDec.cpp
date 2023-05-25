@@ -1116,7 +1116,6 @@ outframe:
         }
         goto outframe;
     } else if (err == C2_NO_MEMORY) {
-        ensureDecoderState(pool);
         // update new config and feekback to framework
         C2StreamPictureSizeInfo::output size(0u, mWidth, mHeight);
         std::vector<std::unique_ptr<C2SettingResult>> failures;
@@ -1136,7 +1135,7 @@ outframe:
             c2_err("failed to update output delay, ret %d", err);
             return;
         }
-
+        ensureDecoderState(pool);
         goto outframe;
     } else if (outfrmCnt == 0) {
         usleep(1000);
