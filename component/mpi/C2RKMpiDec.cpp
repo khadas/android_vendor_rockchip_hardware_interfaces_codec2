@@ -1185,6 +1185,37 @@ void C2RKMpiDec::getVuiParams(MppFrame frame) {
     }
 }
 
+/* copy output MppBuffer, if not output buffer specified, copy to mOutBlock default. */
+c2_status_t C2RKMpiDec::copyOutputBuffer(MppBuffer srcBuffer, MppBuffer dstBuffer) {
+    RgaParam srcPram, dstPram;
+    int32_t srcFd = 0, dstFd = 0;
+
+    srcFd = mpp_buffer_get_fd(srcBuffer);
+
+    if (dstBuffer != nullptr) {
+        dstFd = mpp_buffer_get_fd(dstBuffer);
+    } else {
+        auto c2Handle = mOutBlock->handle();
+        dstFd = c2Handle->data[0];
+    }
+
+    C2RKRgaDef::paramInit(&srcPram, srcFd, mWidth, mHeight, mHorStride, mVerStride);
+    C2RKRgaDef::paramInit(&dstPram, dstFd, mWidth, mHeight, mHorStride, mVerStride);
+
+    if (C2RKRgaDef::nv12Copy(srcPram, dstPram)) {
+        return C2_OK;
+    }
+
+    /* try CPU copy if get rga process fail */
+    uint8_t *srcPtr = (uint8_t*)mpp_buffer_get_ptr(srcBuffer);
+    C2GraphicView wView = mOutBlock->map().get();
+    uint8_t *dstPtr = wView.data()[C2PlanarLayout::PLANE_Y];
+
+    memcpy(dstPtr, srcPtr, mHorStride * mVerStride * 3 / 2);
+
+    return C2_OK;
+}
+
 c2_status_t C2RKMpiDec::sendpacket(uint8_t *data, size_t size, uint64_t pts, uint32_t flags) {
     c2_status_t ret = C2_OK;
     MppPacket packet = nullptr;
@@ -1308,43 +1339,29 @@ REDO:
         }
 
         if (mBufferMode) {
-            bool useRga = (width * height >= 1280 * 720);
-
-            if (useRga) {
-                RgaParam src, dst;
-
-                int32_t srcFd = mpp_buffer_get_fd(mppBuffer);
-                auto c2Handle = mOutBlock->handle();
-                int32_t dstFd = c2Handle->data[0];
-
-                C2RKRgaDef::paramInit(&src, srcFd, width, height, hstride, vstride);
-                C2RKRgaDef::paramInit(&dst, dstFd, width, height, hstride, vstride);
-                if (!C2RKRgaDef::nv12Copy(src, dst)) {
-                    c2_err("faild to copy output to dstBlock on buffer mode.");
-                    ret = C2_CORRUPTED;
-                    goto exit;
-                }
-            } else {
-                C2GraphicView wView = mOutBlock->map().get();
-                uint8_t *dst = wView.data()[C2PlanarLayout::PLANE_Y];
-                uint8_t *src = (uint8_t*)mpp_buffer_get_ptr(mppBuffer);
-
-                memcpy(dst, src, hstride * vstride * 3 / 2);
-            }
-
+            // copy mppBuffer to output mOutBlock in buffer mode
+            copyOutputBuffer(mppBuffer);
             outblock = mOutBlock;
         } else {
             OutBuffer *outBuffer = findOutBuffer(mppBuffer);
             if (!outBuffer) {
-                c2_warn("get outdated mppBuffer %p, release it", mppBuffer);
-                if (frame) {
-                    mpp_frame_deinit(&frame);
-                    frame = nullptr;
+                // new surface generation means all output buffers need to be reset, but
+                // outdated buffer still work in mpp decoder. in this case, we use new
+                // generation buffer to store outdated decode output.
+                c2_warn("get outdated mppBuffer %p, drain it.", mppBuffer);
+                MppBuffer newBuffer = nullptr;
+                mpp_buffer_get(mFrmGrp, &newBuffer, 1);
+                outBuffer = findOutBuffer(newBuffer);
+                if (!outBuffer) {
+                    c2_err("not find newBuffer %p in outBuffer list.", newBuffer);
+                    goto exit;
+                } else {
+                    copyOutputBuffer(mppBuffer, newBuffer);
+                    mppBuffer = newBuffer;
                 }
-                goto REDO;
-
+            } else {
+                mpp_buffer_inc_ref(mppBuffer);
             }
-            mpp_buffer_inc_ref(mppBuffer);
             outBuffer->site = BUFFER_SITE_BY_C2;
             outblock = outBuffer->block;
         }

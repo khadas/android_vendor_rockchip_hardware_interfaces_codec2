@@ -153,6 +153,7 @@ private:
 
     c2_status_t initDecoder(const std::unique_ptr<C2Work> &work);
     void getVuiParams(MppFrame frame);
+    c2_status_t copyOutputBuffer(MppBuffer srcBuffer, MppBuffer dstBuffer = nullptr);
     c2_status_t sendpacket(
             uint8_t *data, size_t size, uint64_t pts, uint32_t flags);
     c2_status_t getoutframe(OutWorkEntry *entry, bool needGetFrame);
