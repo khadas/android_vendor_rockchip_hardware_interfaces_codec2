@@ -1876,13 +1876,9 @@ c2_status_t C2RKMpiEnc::drainInternal(
         const std::unique_ptr<C2Work> &work) {
     c2_log_func_enter();
 
-    if (drainMode == NO_DRAIN) {
-        c2_warn("drain with NO_DRAIN: no-op");
+    if (drainMode != DRAIN_COMPONENT_WITH_EOS) {
+        c2_info("drainMode %d: no-op", drainMode);
         return C2_OK;
-    }
-    if (drainMode == DRAIN_CHAIN) {
-        c2_warn("DRAIN_CHAIN not supported");
-        return C2_OMITTED;
     }
 
     if (mInputCount == mOutputCount) {
