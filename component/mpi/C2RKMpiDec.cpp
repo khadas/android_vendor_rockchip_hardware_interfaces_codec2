@@ -555,6 +555,8 @@ C2RKMpiDec::C2RKMpiDec(
         mGrallocVersion = 4;
     }
 
+    sDecConcurrentInstances.fetch_add(1, std::memory_order_relaxed);
+
     c2_info("component name: %s\r\nversion: %s", name, C2_GIT_BUILD_VERSION);
 }
 
@@ -570,13 +572,6 @@ c2_status_t C2RKMpiDec::onInit() {
     c2_status_t ret = C2_OK;
 
     c2_log_func_enter();
-
-    if (sDecConcurrentInstances.load() >= kMaxDecConcurrentInstances) {
-        c2_warn("Reject to Initialize() due to too many dec instances: %d",
-                sDecConcurrentInstances.load());
-        return C2_NO_MEMORY;
-    }
-    sDecConcurrentInstances.fetch_add(1, std::memory_order_relaxed);
 
     ret = updateOutputDelay();
     if (ret != C2_OK) {
@@ -1797,6 +1792,12 @@ public:
             c2_node_id_t id,
             std::shared_ptr<C2Component>* const component,
             std::function<void(C2Component*)> deleter) override {
+        if (sDecConcurrentInstances.load() >= kMaxDecConcurrentInstances) {
+            c2_warn("Reject to Initialize() due to too many dec instances: %d",
+                    sDecConcurrentInstances.load());
+            return C2_NO_MEMORY;
+        }
+
         *component = std::shared_ptr<C2Component>(
                 new C2RKMpiDec(
                         mComponentName.c_str(),

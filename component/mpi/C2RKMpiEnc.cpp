@@ -939,6 +939,8 @@ C2RKMpiEnc::C2RKMpiEnc(
         mChipType = RK_CHIP_UNKOWN;
     }
 
+    sEncConcurrentInstances.fetch_add(1, std::memory_order_relaxed);
+
     c2_info("component name %s\r\nversion: %s", name, C2_GIT_BUILD_VERSION);
 }
 
@@ -952,12 +954,7 @@ C2RKMpiEnc::~C2RKMpiEnc() {
 
 c2_status_t C2RKMpiEnc::onInit() {
     c2_log_func_enter();
-    if (sEncConcurrentInstances.load() >= kMaxEncConcurrentInstances) {
-        c2_warn("Reject to Initialize() due to too many enc instances: %d",
-                sEncConcurrentInstances.load());
-        return C2_NO_MEMORY;
-    }
-    sEncConcurrentInstances.fetch_add(1, std::memory_order_relaxed);
+
     return C2_OK;
 }
 
@@ -2520,7 +2517,12 @@ public:
             c2_node_id_t id,
             std::shared_ptr<C2Component>* const component,
             std::function<void(C2Component*)> deleter) override {
-        c2_log_func_enter();
+        if (sEncConcurrentInstances.load() >= kMaxEncConcurrentInstances) {
+            c2_warn("Reject to Initialize() due to too many enc instances: %d",
+                    sEncConcurrentInstances.load());
+            return C2_NO_MEMORY;
+        }
+
         *component = std::shared_ptr<C2Component>(
                 new C2RKMpiEnc(
                         mComponentName.c_str(),
