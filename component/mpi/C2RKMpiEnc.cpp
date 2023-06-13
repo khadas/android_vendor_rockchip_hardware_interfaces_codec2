@@ -1530,7 +1530,7 @@ c2_status_t C2RKMpiEnc::setupMlvecIfNeccessary() {
 
     /* enable mlvec */
     if (spacing > 0 || numLTRFrms > 0 || sarWidth > 0 ||
-        sarHeight > 0 || inputCtlMode > 0 || layerCount > 0) {
+        sarHeight > 0 || inputCtlMode > 0) {
         C2RKMlvecLegacy::MStaticCfg stCfg;
 
         if (numLTRFrms > MLVEC_MAX_LTR_FRAMES_COUNT) {
@@ -1622,10 +1622,8 @@ c2_status_t C2RKMpiEnc::setupEncCfg() {
     /* Video control Set Prepend Header Setting */
     setupPrependHeaderSetting();
 
-#if 0
     /* Video control Set MLVEC encoder */
     setupMlvecIfNeccessary();
-#endif
 
     err = mMppMpi->control(mMppCtx, MPP_ENC_SET_CFG, mEncCfg);
     if (err) {
