@@ -27,6 +27,8 @@
 
 namespace android {
 
+struct ColorAspects;
+
 class C2RKMpiDec : public C2RKComponent {
 public:
     class IntfImpl;
@@ -154,6 +156,7 @@ private:
         const std::unique_ptr<C2Work> &work);
 
     c2_status_t initDecoder(const std::unique_ptr<C2Work> &work);
+    void setDefaultCodecColorAspectsIfNeeded(ColorAspects &aspects);
     void getVuiParams(MppFrame frame);
     c2_status_t copyOutputBuffer(MppBuffer srcBuffer, MppBuffer dstBuffer = nullptr);
     c2_status_t sendpacket(

@@ -24,6 +24,7 @@
 #include <ui/GraphicBufferMapper.h>
 #include <gralloc_priv_omx.h>
 #include <sys/syscall.h>
+#include <media/stagefright/foundation/ALookup.h>
 
 #include "hardware/hardware_rockchip.h"
 #include "hardware/gralloc_rockchip.h"
@@ -430,16 +431,16 @@ public:
     static C2R DefaultColorAspectsSetter(bool mayBlock, C2P<C2StreamColorAspectsTuning::output> &me) {
         (void)mayBlock;
         if (me.v.range > C2Color::RANGE_OTHER) {
-                me.set().range = C2Color::RANGE_OTHER;
+            me.set().range = C2Color::RANGE_OTHER;
         }
         if (me.v.primaries > C2Color::PRIMARIES_OTHER) {
-                me.set().primaries = C2Color::PRIMARIES_OTHER;
+            me.set().primaries = C2Color::PRIMARIES_OTHER;
         }
         if (me.v.transfer > C2Color::TRANSFER_OTHER) {
-                me.set().transfer = C2Color::TRANSFER_OTHER;
+            me.set().transfer = C2Color::TRANSFER_OTHER;
         }
         if (me.v.matrix > C2Color::MATRIX_OTHER) {
-                me.set().matrix = C2Color::MATRIX_OTHER;
+            me.set().matrix = C2Color::MATRIX_OTHER;
         }
         return C2R::Ok();
     }
@@ -447,16 +448,16 @@ public:
     static C2R CodedColorAspectsSetter(bool mayBlock, C2P<C2StreamColorAspectsInfo::input> &me) {
         (void)mayBlock;
         if (me.v.range > C2Color::RANGE_OTHER) {
-                me.set().range = C2Color::RANGE_OTHER;
+            me.set().range = C2Color::RANGE_OTHER;
         }
         if (me.v.primaries > C2Color::PRIMARIES_OTHER) {
-                me.set().primaries = C2Color::PRIMARIES_OTHER;
+            me.set().primaries = C2Color::PRIMARIES_OTHER;
         }
         if (me.v.transfer > C2Color::TRANSFER_OTHER) {
-                me.set().transfer = C2Color::TRANSFER_OTHER;
+            me.set().transfer = C2Color::TRANSFER_OTHER;
         }
         if (me.v.matrix > C2Color::MATRIX_OTHER) {
-                me.set().matrix = C2Color::MATRIX_OTHER;
+            me.set().matrix = C2Color::MATRIX_OTHER;
         }
         return C2R::Ok();
     }
@@ -821,7 +822,7 @@ bool C2RKMpiDec::checkPreferFbcOutput(const std::unique_ptr<C2Work> &work) {
     }
 
     if (mBufferMode) {
-        c2_info("fbc do not suppport in buffermode, perfer non-fbc mode");
+        c2_info("bufferMode perfer non-fbc mode");
         return false;
     }
 
@@ -1169,6 +1170,28 @@ outframe:
     }
 }
 
+void C2RKMpiDec::setDefaultCodecColorAspectsIfNeeded(ColorAspects &aspects) {
+    typedef ColorAspects CA;
+
+    static const ALookup<CA::Primaries, CA::MatrixCoeffs> sPMAspectMap = {
+        {
+            { CA::PrimariesUnspecified,   CA::MatrixUnspecified },
+            { CA::PrimariesBT709_5,       CA::MatrixBT709_5 },
+            { CA::PrimariesBT470_6M,      CA::MatrixBT470_6M },
+            { CA::PrimariesBT601_6_625,   CA::MatrixBT601_6 },
+            { CA::PrimariesBT601_6_525,   CA::MatrixSMPTE240M },
+            { CA::PrimariesGenericFilm,   CA::MatrixBT2020 },
+            { CA::PrimariesBT2020,        CA::MatrixBT2020Constant },
+        }
+    };
+
+    if (aspects.mMatrixCoeffs == CA::MatrixUnspecified) {
+        sPMAspectMap.map(aspects.mPrimaries, &aspects.mMatrixCoeffs);
+    } else if (aspects.mPrimaries == CA::PrimariesUnspecified) {
+        sPMAspectMap.map(aspects.mMatrixCoeffs, &aspects.mPrimaries);
+    }
+}
+
 void C2RKMpiDec::getVuiParams(MppFrame frame) {
     VuiColorAspects aspects;
 
@@ -1192,6 +1215,8 @@ void C2RKMpiDec::getVuiParams(MppFrame frame) {
                 aspects.primaries, aspects.transfer, aspects.coeffs,
                 aspects.fullRange, sfAspects);
 
+        setDefaultCodecColorAspectsIfNeeded(sfAspects);
+
         if (!C2Mapper::map(sfAspects.mPrimaries, &codedAspects.primaries)) {
             codedAspects.primaries = C2Color::PRIMARIES_UNSPECIFIED;
         }
@@ -1204,12 +1229,15 @@ void C2RKMpiDec::getVuiParams(MppFrame frame) {
         if (!C2Mapper::map(sfAspects.mTransfer, &codedAspects.transfer)) {
             codedAspects.transfer = C2Color::TRANSFER_UNSPECIFIED;
         }
+
         std::vector<std::unique_ptr<C2SettingResult>> failures;
         mIntf->config({&codedAspects}, C2_MAY_BLOCK, &failures);
 
-        c2_trace("VuiColorAspects: pri %d tra %d coeff %d range %d",
-                 aspects.primaries, aspects.transfer,
-                 aspects.coeffs, aspects.fullRange);
+        c2_info("Got color aspects (R:%d(%s), P:%d(%s), M:%d(%s), T:%d(%s))",
+                sfAspects.mRange, asString(sfAspects.mRange),
+                sfAspects.mPrimaries, asString(sfAspects.mPrimaries),
+                sfAspects.mMatrixCoeffs, asString(sfAspects.mMatrixCoeffs),
+                sfAspects.mTransfer, asString(sfAspects.mTransfer));
     }
 }
 
