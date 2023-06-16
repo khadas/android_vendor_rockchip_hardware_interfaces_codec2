@@ -1391,6 +1391,12 @@ REDO:
         c2_info("info-change with new dimensions(%dx%d) stride(%dx%d) fmt %d", \
                 width, height, hstride, vstride, format);
 
+        if (width > kMaxVideoWidth || height > kMaxVideoWidth) {
+            c2_err("unsupport video size %dx%d, signalled Error.", width, height);
+            ret = C2_CORRUPTED;
+            goto exit;
+        }
+
         if (!mBufferMode) {
             clearOutBuffers();
             mpp_buffer_group_clear(mFrmGrp);
