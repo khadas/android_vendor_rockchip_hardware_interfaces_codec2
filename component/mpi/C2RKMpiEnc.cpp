@@ -1022,7 +1022,8 @@ c2_status_t C2RKMpiEnc::setupSceneMode() {
 
 c2_status_t C2RKMpiEnc::setupFrameRate() {
     float frameRate = 0.0f;
-    uint32_t idrInterval = 0, gop = 0;
+    uint32_t idrInterval = 0;
+    int32_t gop = 0;
 
     IntfImpl::Lock lock = mIntf->lock();
 
@@ -1050,9 +1051,9 @@ c2_status_t C2RKMpiEnc::setupFrameRate() {
         }
     }
 
-    c2_info("setupFrameRate: framerate %.2f gop %d", frameRate, idrInterval);
+    c2_info("setupFrameRate: framerate %.2f gop %u", frameRate, idrInterval);
 
-    gop = (idrInterval  < 8640000) ? idrInterval : 30;
+    gop = (idrInterval < INT_MAX) ? idrInterval : 0;
 
     mpp_enc_cfg_set_s32(mEncCfg, "rc:gop", gop);
 
