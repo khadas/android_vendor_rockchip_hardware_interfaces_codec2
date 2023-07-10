@@ -352,6 +352,13 @@ public:
                 .build());
 
         addParameter(
+                DefineParam(mSliceSize, C2_PARAMKEY_SLICE_SIZE)
+                .withDefault(new C2StreamSliceSizeInfo::input(0))
+                .withFields({C2F(mSliceSize, value).any()})
+                .withSetter(Setter<decltype(mSliceSize)::element_type>::StrictValueWithNoDeps)
+                .build());
+
+        addParameter(
                 DefineParam(mMlvecParams->driverInfo, C2_PARAMKEY_MLVEC_ENC_DRI_VERSION)
                 .withConstValue(new C2DriverVersion::output(MLVEC_DRIVER_VERSION))
                 .build());
@@ -882,6 +889,8 @@ public:
     { return mPrependHeaderMode; }
     std::shared_ptr<C2StreamSceneModeInfo::input> getSceneMode_l() const
     { return mSceneMode; }
+    std::shared_ptr<C2StreamSliceSizeInfo::input> getSliceSize_l() const
+    { return mSliceSize; }
     std::shared_ptr<MlvecParams> getMlvecParams_l() const
     { return mMlvecParams; }
 
@@ -902,6 +911,7 @@ private:
     std::shared_ptr<C2StreamTemporalLayeringTuning::output> mLayering;
     std::shared_ptr<C2PrependHeaderModeSetting> mPrependHeaderMode;
     std::shared_ptr<C2StreamSceneModeInfo::input> mSceneMode;
+    std::shared_ptr<C2StreamSliceSizeInfo::input> mSliceSize;
     std::shared_ptr<MlvecParams> mMlvecParams;
 };
 
@@ -1016,6 +1026,20 @@ c2_status_t C2RKMpiEnc::setupSceneMode() {
      *   - 1: ipc mode
      */
     mpp_enc_cfg_set_s32(mEncCfg, "tune:scene_mode", c2Mode->value);
+
+    return C2_OK;
+}
+
+c2_status_t C2RKMpiEnc::setupSliceSize() {
+    IntfImpl::Lock lock = mIntf->lock();
+
+    std::shared_ptr<C2StreamSliceSizeInfo::input> c2Size = mIntf->getSliceSize_l();
+
+    if (c2Size->value > 0) {
+        c2_info("setupSliceSize: slice-size %d", c2Size->value);
+        mpp_enc_cfg_set_s32(mEncCfg, "split:mode", MPP_ENC_SPLIT_BY_BYTE);
+        mpp_enc_cfg_set_s32(mEncCfg, "split:arg", c2Size->value);
+    }
 
     return C2_OK;
 }
@@ -1601,6 +1625,9 @@ c2_status_t C2RKMpiEnc::setupEncCfg() {
 
     /* Video control Set Scene Mode */
     setupSceneMode();
+
+    /* Video control Set Slice Size */
+    setupSliceSize();
 
     /* Video control Set FrameRates and gop */
     setupFrameRate();

@@ -22,6 +22,7 @@
 
 enum ExtendedC2ParamIndexKind : C2Param::type_index_t {
     kParamIndexSceneMode = C2Param::TYPE_INDEX_VENDOR_START,
+
     /* static capability queries */
     kParamIndexMLVECDriVersion,
     kParamIndexMLVECMaxLayerCount,
@@ -43,10 +44,15 @@ enum ExtendedC2ParamIndexKind : C2Param::type_index_t {
     kParamIndexMLVECTriggerTime,
     kParamIndexMLVECDownScalar,
     kParamIndexMLVECInputCrop,
+
+    kParamIndexSliceSize,
 };
 
 typedef C2PortParam<C2Info, C2Int32Value, kParamIndexSceneMode> C2StreamSceneModeInfo;
 constexpr char C2_PARAMKEY_SCENE_MODE[] = "scene-mode";
+
+typedef C2PortParam<C2Info, C2Int32Value, kParamIndexSliceSize> C2StreamSliceSizeInfo;
+constexpr char C2_PARAMKEY_SLICE_SIZE[] = "slice-size";
 
 /*
  * 1. MLVEC hardware driver version
