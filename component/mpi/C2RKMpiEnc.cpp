@@ -2294,7 +2294,6 @@ c2_status_t C2RKMpiEnc::getInBufferFromWork(
     case C2PlanarLayout::TYPE_RGB:
         [[fallthrough]];
     case C2PlanarLayout::TYPE_RGBA: {
-        RgaParam src, dst;
         uint32_t fd = c2Handle->data[0];
 
         /* dump input data if neccessary */
@@ -2310,11 +2309,13 @@ c2_status_t C2RKMpiEnc::getInBufferFromWork(
                 configChanged = true;
             }
         } else {
-            C2RKRgaDef::paramInit(&src, fd, width, height, stride, height);
-            C2RKRgaDef::paramInit(&dst, mDmaMem->fd,
-                              mSize->width, mSize->height, mHorStride, mVerStride);
+            RgaInfo src, dst;
 
-            if (!C2RKRgaDef::rgbToNv12(src, dst)) {
+            C2RKRgaDef::SetRgaInfo(&src, fd, width, height, stride, height);
+            C2RKRgaDef::SetRgaInfo(&dst, mDmaMem->fd,
+                                   mSize->width, mSize->height, mHorStride, mVerStride);
+
+            if (!C2RKRgaDef::RGBToNV12(src, dst)) {
                 c2_err("faild to convert rgba to nv12");
                 ret = C2_CORRUPTED;
             }
@@ -2343,13 +2344,13 @@ c2_status_t C2RKMpiEnc::getInBufferFromWork(
          * this dmaBuffer to encoder.
          */
         if ((mChipType != RK_CHIP_3588) && ((stride & 0xf) || (height & 0xf))) {
-            RgaParam src, dst;
+            RgaInfo src, dst;
 
-            C2RKRgaDef::paramInit(&src, fd, width, height, stride, height);
-            C2RKRgaDef::paramInit(&dst, mDmaMem->fd,
-                                  mSize->width, mSize->height, mHorStride, mVerStride);
+            C2RKRgaDef::SetRgaInfo(&src, fd, width, height, stride, height);
+            C2RKRgaDef::SetRgaInfo(&dst, mDmaMem->fd,
+                                   mSize->width, mSize->height, mHorStride, mVerStride);
 
-            if (!C2RKRgaDef::nv12Copy(src, dst)) {
+            if (!C2RKRgaDef::NV12ToNV12(src, dst)) {
                 c2_err("faild to copy nv12");
                 ret = C2_CORRUPTED;
             }

@@ -1284,7 +1284,7 @@ void C2RKMpiDec::getVuiParams(MppFrame frame) {
 
 /* copy output MppBuffer, if not output buffer specified, copy to mOutBlock default. */
 c2_status_t C2RKMpiDec::copyOutputBuffer(MppBuffer srcBuffer, MppBuffer dstBuffer) {
-    RgaParam srcPram, dstPram;
+    RgaInfo srcInfo, dstInfo;
     int32_t srcFd = 0, dstFd = 0;
 
     srcFd = mpp_buffer_get_fd(srcBuffer);
@@ -1296,10 +1296,10 @@ c2_status_t C2RKMpiDec::copyOutputBuffer(MppBuffer srcBuffer, MppBuffer dstBuffe
         dstFd = c2Handle->data[0];
     }
 
-    C2RKRgaDef::paramInit(&srcPram, srcFd, mWidth, mHeight, mHorStride, mVerStride);
-    C2RKRgaDef::paramInit(&dstPram, dstFd, mWidth, mHeight, mHorStride, mVerStride);
+    C2RKRgaDef::SetRgaInfo(&srcInfo, srcFd, mWidth, mHeight, mHorStride, mVerStride);
+    C2RKRgaDef::SetRgaInfo(&dstInfo, dstFd, mWidth, mHeight, mHorStride, mVerStride);
 
-    if (C2RKRgaDef::nv12Copy(srcPram, dstPram)) {
+    if (C2RKRgaDef::NV12ToNV12(srcInfo, dstInfo)) {
         return C2_OK;
     }
 

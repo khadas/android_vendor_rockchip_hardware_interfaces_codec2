@@ -25,16 +25,16 @@ typedef struct {
     int32_t height;
     int32_t wstride;
     int32_t hstride;
-} RgaParam;
+} RgaInfo;
 
 class C2RKRgaDef {
 public:
-    static void paramInit(RgaParam *param, int32_t fd,
+    static void SetRgaInfo(RgaInfo *param, int32_t fd,
                           int32_t width, int32_t height,
                           int32_t wstride = 0, int32_t hstride = 0);
 
-    static bool rgbToNv12(RgaParam srcParam, RgaParam dstParam);
-    static bool nv12Copy(RgaParam srcParam, RgaParam dstParam);
+    static bool RGBToNV12(RgaInfo srcInfo, RgaInfo dstInfo);
+    static bool NV12ToNV12(RgaInfo srcInfo, RgaInfo dstInfo);
 };
 
 #endif  // ANDROID_C2_RK_RGA_DEF_H__
