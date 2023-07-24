@@ -17,27 +17,17 @@
 #ifndef ANDROID_C2_RK_NAL_DEF_H__
 #define ANDROID_C2_RK_NAL_DEF_H__
 
+#include "C2RKBitRead.h"
+
 class C2RKNalParser {
 public:
-    static int32_t getBitDepth(uint8_t *src, int32_t size, int32_t codingType);
+    static int32_t getBitDepth(uint8_t *buf, int32_t size, int32_t codingType);
 
 private:
-    typedef struct {
-        uint8_t *buf;
-        int32_t  bufSize;
-        int32_t  bitPos;
-        int32_t  totalBit;
-        int32_t  curBitPos;
-    } MyBitCtx_t;
-
-    static void* createBitCtx(void *buf, int32_t size);
-    static void  freeBitCtx(void *ctx);
-
-    static int32_t getBits(void *ctx, int32_t pos);
-    static void    skipBits(void *ctx, int32_t pos);
-
-    static int32_t getAvcBitDepth(void *ctx);
-    static int32_t getHevcBitDepth(void *ctx);
+    static bool avcGetBitDepth(uint8_t *buf, int32_t size, int32_t *bitDepth);
+    static bool hevcParseNalSps(BitReadContext *gb, int32_t *bitDepth);
+    static bool hevcParseNalUnit(uint8_t *buf, int32_t size, int32_t *bitDepth);
+    static bool hevcGetBitDepth(uint8_t *buf, int32_t size, int32_t *bitDepth);
 };
 
 #endif  // ANDROID_C2_RK_NAL_DEF_H__

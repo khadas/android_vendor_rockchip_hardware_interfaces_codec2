@@ -20,167 +20,244 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "mpp/rk_mpi.h"
 #include "C2RKNalParser.h"
 #include "C2RKLog.h"
-#include "mpp/rk_mpi.h"
 
-#define NAL_MAX_LEN             32
-#define HEVC_PROFILE_MAIN_10    2
+#define H264_NAL_SPS            7
 #define H264_PROFILE_HIGH10     110
+#define H265_NAL_SPS            33
+#define H265_MAX_VPS_COUNT      16
+#define H265_MAX_SUB_LAYERS     7
+#define H265_PROFILE_MAIN_10    2
 
-int32_t C2RKNalParser::getBits(void *ctx, int32_t pos) {
-    uint8_t  temp[5] = {0};
-    uint8_t *curChar = NULL;
-    uint8_t  nbyte  = 0;
-    uint8_t  shift  = 0;
-    uint32_t result = 0;
-    uint64_t ret    = 0;
+bool C2RKNalParser::avcGetBitDepth(uint8_t *buf, int32_t size, int32_t *bitDepth) {
+    BitReadContext  gbCtx;
+    BitReadContext *gb = &gbCtx;
+    int32_t startCodeLen = 0;
+    int32_t value = 0;
 
-    MyBitCtx_t *bitCtx = (MyBitCtx_t *)ctx;
-
-    if (pos > NAL_MAX_LEN) {
-        pos = NAL_MAX_LEN;
+    c2_set_bitread_ctx(gb, buf, size);
+    c2_set_pre_detection(gb);
+    if (!c2_update_curbyte(gb)) {
+        c2_err("failed to update curbyte, skipping.");
+        goto error;
     }
 
-    if ((bitCtx->bitPos + pos) > bitCtx->totalBit) {
-        pos = bitCtx->totalBit - bitCtx->bitPos;
+    /*
+     * ExtraData carry h264 sps_info in two ways.
+     * 1. start with 0x000001 or 0x00000001
+     * 2. AVC extraData configuration
+     */
+
+    if (buf[0] == 0x00 && buf[1] == 0x00 && buf[2] == 0x01) {
+        startCodeLen = 3;
+    } else if (buf[0] == 0x00 && buf[1] == 0x00 && buf[2] == 0x00 && buf[3] == 0x01) {
+        startCodeLen = 4;
+    } else {
+        startCodeLen = 0;
     }
 
-    curChar = bitCtx->buf + (bitCtx->bitPos >> 3);
-    nbyte   = (bitCtx->curBitPos + pos + 7) >> 3;
-    shift   = (8 - (bitCtx->curBitPos + pos)) & 0x07;
+    if (startCodeLen > 0) {
+        SKIP_BITS(gb, startCodeLen * 8);
+    } else {
+        // AVC extraData configuration
+        SKIP_BITS(gb, 32);
+        SKIP_BITS(gb, 16);
 
-    memcpy(&temp[5 - nbyte], curChar, nbyte);
-    ret = (uint32_t)temp[0] << 24;
-    ret = ret << 8;
-    ret = ((uint32_t)temp[1] << 24)|((uint32_t)temp[2] << 16) \
-                        | ((uint32_t)temp[3] << 8)| temp[4];
+        SKIP_BITS(gb, 16);  // sequenceParameterSetLength
+    }
 
-    ret = (ret >> shift) & (((uint64_t)1 << pos) - 1);
+    /* parse h264 sps info */
+    READ_ONEBIT(gb, &value);  // forbidden_bit
 
-    result = ret;
-    bitCtx->bitPos += pos;
-    bitCtx->curBitPos = bitCtx->bitPos & 0x7;
+    SKIP_BITS(gb, 2);  // nal_ref_idc
+    READ_BITS(gb, 5, &value);  // nalu_type
+    // stop traversal if not SPS nalu type
+    if (value != H264_NAL_SPS) {
+        goto error;
+    }
 
-    return result;
+    READ_BITS(gb, 8, &value);  // profile_idc
+    if (value == H264_PROFILE_HIGH10) {
+        *bitDepth = 10;
+    } else {
+        *bitDepth = 8;
+    }
+
+    return true;
+
+__BR_ERR:
+error:
+    return false;
 }
 
-void C2RKNalParser::skipBits(void *ctx, int32_t pos) {
-    MyBitCtx_t *bitCtx = (MyBitCtx_t *)ctx;
-    bitCtx->bitPos     += pos;
-    bitCtx->curBitPos  = bitCtx->bitPos & 0x7;
-}
+bool C2RKNalParser::hevcParseNalSps(BitReadContext *gb, int32_t *bitDepth) {
+    int32_t value = 0;
 
-int32_t C2RKNalParser::getAvcBitDepth(void * ctx) {
-    int32_t profileIdc = 0;
-
-    profileIdc = getBits(ctx, 8);
-    if (profileIdc == H264_PROFILE_HIGH10) {
-        return 10;
+    READ_BITS(gb, 4, &value); // vps-id
+    if (value > H265_MAX_VPS_COUNT) {
+        c2_err("VPS id out of range: %d", value);
+        goto error;
     }
 
-    return 8;
-}
+    READ_BITS(gb, 3, &value);
+    value += 1;
 
-int32_t C2RKNalParser::getHevcBitDepth(void * ctx) {
-    int profileIdc = 0;
-
-    skipBits(ctx, 8);  // nal header
-    skipBits(ctx, 4);  // vps_id
-    skipBits(ctx, 3);  // max_sub_layers
-    skipBits(ctx, 1);
-    skipBits(ctx, 2);  // profile_space
-    skipBits(ctx, 1);  // tier_flag
-    profileIdc = getBits(ctx, 5);
-    if (profileIdc == HEVC_PROFILE_MAIN_10) {
-        return 10;
+    if (value > H265_MAX_SUB_LAYERS) {
+        c2_err("sps_max_sub_layers out of range: %d", value);
+        goto error;
     }
 
-    return 8;
-}
+    SKIP_BITS(gb, 1); // temporal_id_nesting_flag
 
-void* C2RKNalParser::createBitCtx(void *buf, int32_t size) {
-    MyBitCtx_t *bitCtx = (MyBitCtx_t *)malloc(sizeof(MyBitCtx_t));
-    if (bitCtx == NULL) {
-        c2_err("failed to alloc bitCtx");
-        goto exit;
+    SKIP_BITS(gb, 3); // profile_space & tier_flag
+    READ_BITS(gb, 5, &value); // profile_idc
+
+    if (value == H265_PROFILE_MAIN_10) {
+        *bitDepth = 10;
+    } else {
+        *bitDepth = 8;
     }
 
-    bitCtx->bitPos    = 0;
-    bitCtx->curBitPos = 0;
-    bitCtx->bufSize   = size;
-    bitCtx->buf       = (uint8_t *)malloc(size);
-    if (bitCtx->buf == NULL) {
-        c2_err("failed to alloc bitCtx buf");
-        goto exit;
-    }
+    return true;
 
-    memcpy(bitCtx->buf, buf, size);
-    bitCtx->totalBit = bitCtx->bufSize << 3;
-
-    return (void *)bitCtx;
-
-exit:
-    freeBitCtx(bitCtx);
-    return NULL;
+__BR_ERR:
+error:
+    return false;
 }
 
-void C2RKNalParser::freeBitCtx(void *ctx) {
-    MyBitCtx_t *bitCtx = (MyBitCtx_t *)ctx;
+bool C2RKNalParser::hevcParseNalUnit(uint8_t *buf, int32_t size, int32_t *bitDepth) {
+    BitReadContext gb_ctx;
+    BitReadContext *gb = &gb_ctx;
+    int32_t nalUnitType = 0;
+    int32_t nuhLayerId = 0;
+    int32_t temporalId = 0;
 
-    if (bitCtx != NULL) {
-        if (bitCtx->buf != NULL) {
-            free(bitCtx->buf);
-            bitCtx->buf = NULL;
+    c2_set_bitread_ctx(gb, buf, size);
+    c2_set_pre_detection(gb);
+    if (!c2_update_curbyte(gb)) {
+        c2_err("failed to update curbyte, skipping.");
+        return false;
+    }
+
+    SKIP_BITS(gb, 1); /* this bit should be zero */
+    READ_BITS(gb, 6, &nalUnitType);
+    READ_BITS(gb, 6, &nuhLayerId);
+    READ_BITS(gb, 3, &temporalId);
+
+    temporalId = temporalId -1;
+
+    c2_trace("nal_unit_type: %d, nuh_layer_id: %d temporal_id: %d",
+             nalUnitType, nuhLayerId, temporalId);
+
+    if (temporalId < 0) {
+        c2_err("Invalid NAL unit %d, skipping.", nalUnitType);
+        goto error;
+    }
+
+    if (nalUnitType == H265_NAL_SPS) {
+        if (hevcParseNalSps(gb, bitDepth)) {
+            return true;
         }
-        free(bitCtx);
-        bitCtx = NULL;
     }
+
+__BR_ERR:
+error:
+    return false;
 }
 
-int32_t C2RKNalParser::getBitDepth(uint8_t *src, int32_t size, int32_t codingType) {
-    void     *ctx = NULL;
-    int32_t   i   = 0;
-    int32_t   ret = 0;
+/* parse hevc sps info to find out bitdepth info */
+bool C2RKNalParser::hevcGetBitDepth(uint8_t *buf, int32_t size, int32_t *bitDepth) {
+    if (buf[0] || buf[1] || buf[2] > 1) {
+        int32_t i = 0, j = 0;
+        int32_t nalLenSize = 0;
+        uint32_t numOfArrays = 0, numOfNals = 0;
 
-    if ((codingType != MPP_VIDEO_CodingAVC && codingType != MPP_VIDEO_CodingHEVC) || size < 4) {
-        return 8;
-    }
+        /* It seems the extradata is encoded as hvcC format.
+         * Temporarily, we support configurationVersion==0 until 14496-15 3rd
+         * is finalized. When finalized, configurationVersion will be 1 and we
+         * can recognize hvcC by checking if h265dctx->extradata[0]==1 or not. */
+        if (size < 7) {
+            goto error;
+        }
 
-    for (i = 0; i <= size - 4; i++) {
-        if (codingType == MPP_VIDEO_CodingAVC) {
-            if (src[i] == 0x00 && src[i + 1] == 0x00 &&
-                src[i + 2] == 0x01 && src[i + 3] == 0x67) {
-                i += 4;
-                c2_info("find h264 sps");
-                break;
+        c2_info("extradata is encoded as hvcC format");
+
+        nalLenSize = 1 + (buf[14 + 7] & 3);
+        buf += 22;
+        size -= 22;
+        numOfArrays = static_cast<char>(buf[0]);
+        buf += 1;
+        size -= 1;
+        for (i = 0; i < numOfArrays; i++) {
+            buf += 1;
+            size -= 1;
+            // Num of nals
+            numOfNals = buf[0] << 8 | buf[1];
+            buf += 2;
+            size -= 2;
+
+            for (j = 0; j < numOfNals; j++) {
+                uint32_t length = 0;
+                if (size < 2) {
+                    goto error;
+                }
+
+                length = buf[0] << 8 | buf[1];
+
+                buf += 2;
+                size -= 2;
+                if (size < length) {
+                    goto error;
+                }
+                if (hevcParseNalUnit(buf, length, bitDepth)) {
+                    return true;
+                }
+                buf += length;
+                size -= length;
             }
-        } else if (codingType == MPP_VIDEO_CodingHEVC) {
-            if (src[i] == 0x00 && src[i + 1] == 0x00 &&
-                src[i + 2] == 0x01 && ((src[i + 3] & 0x7f) >> 1) == 33) {
-                i += 4;
-                c2_info("find h265 sps");
-                break;
+        }
+    } else {
+        int32_t i;
+        for (i = 0; i < size - 4; i++) {
+            // find sps start code
+            if (buf[i] == 0x00 && buf[i + 1] == 0x00 &&
+                buf[i + 2] == 0x01 && ((buf[i + 3] & 0x7f) >> 1) == H265_NAL_SPS) {
+                c2_info("find h265 sps start code.");
+                i += 3;
+                if (hevcParseNalUnit(buf + i, size - i, bitDepth)) {
+                    return true;
+                }
             }
-       }
-    }
-    if (i == (size - 3)) {
-        return 8;   // default 8
+        }
     }
 
-    ctx = createBitCtx(src + i, size - i);
-    if (ctx == NULL) {
-        c2_err("failed to create bitCtx, set default 8");
+error:
+    return false;
+}
+
+int32_t C2RKNalParser::getBitDepth(uint8_t *buf, int32_t size, int32_t codingType) {
+    int32_t bitDepth = 0;
+
+    if (size < 4) {
+        // default 8bit
         return 8;
     }
 
     if (codingType == MPP_VIDEO_CodingAVC) {
-        ret = getAvcBitDepth(ctx);
+        if (!avcGetBitDepth(buf, size, &bitDepth)) {
+            bitDepth = 8;
+        }
     } else if (codingType == MPP_VIDEO_CodingHEVC) {
-        ret = getHevcBitDepth(ctx);
+        if (!hevcGetBitDepth(buf, size, &bitDepth)) {
+            bitDepth = 8;
+        }
+    } else {
+        bitDepth = 8;
+        c2_trace("not support coding %d yet, set default 8bit.", codingType);
     }
 
-    freeBitCtx(ctx);
-
-    return ret;
+    return bitDepth;
 }

@@ -5,6 +5,7 @@ cc_library_static {
     srcs: [
         "C2RKChips.cpp",
         "C2RKLog.cpp",
+        "C2RKBitRead.cpp",
         "C2RKDump.cpp",
         "C2RKEnv.cpp",
         "C2RKChipFeaturesDef.cpp",
