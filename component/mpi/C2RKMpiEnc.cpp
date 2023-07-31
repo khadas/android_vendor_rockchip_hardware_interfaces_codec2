@@ -1288,12 +1288,16 @@ c2_status_t C2RKMpiEnc::setupVuiParams() {
             sfAspects, &primaries, &transfer,
             &matrixCoeffs, &range);
 
-    if (mEncCfg != nullptr) {
-        mpp_enc_cfg_set_s32(mEncCfg, "prep:range", range ? 2 : 0);
-        mpp_enc_cfg_set_s32(mEncCfg, "prep:colorprim", primaries);
-        mpp_enc_cfg_set_s32(mEncCfg, "prep:colortrc", transfer);
-        mpp_enc_cfg_set_s32(mEncCfg, "prep:colorspace", matrixCoeffs);
-    }
+    c2_info("setupVuiParams: (R:%d(%s), P:%d(%s), M:%d(%s), T:%d(%s))",
+            sfAspects.mRange, asString(sfAspects.mRange),
+            sfAspects.mPrimaries, asString(sfAspects.mPrimaries),
+            sfAspects.mMatrixCoeffs, asString(sfAspects.mMatrixCoeffs),
+            sfAspects.mTransfer, asString(sfAspects.mTransfer));
+
+    mpp_enc_cfg_set_s32(mEncCfg, "prep:range", range ? 2 : 0);
+    mpp_enc_cfg_set_s32(mEncCfg, "prep:colorprim", primaries);
+    mpp_enc_cfg_set_s32(mEncCfg, "prep:colortrc", transfer);
+    mpp_enc_cfg_set_s32(mEncCfg, "prep:colorspace", matrixCoeffs);
 
     return C2_OK;
 }

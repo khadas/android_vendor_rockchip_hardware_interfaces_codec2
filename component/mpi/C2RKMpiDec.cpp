@@ -1535,8 +1535,8 @@ c2_status_t C2RKMpiDec::checkSurfaceConfig(std::shared_ptr<C2GraphicBlock> block
         mGeneration = generation;
     } else if (mGeneration != generation) {
         c2_info("generation change to %d, clear old buffer", generation);
-        mpp_buffer_group_clear(mFrmGrp);
         clearOldGenerationOutBuffers(generation);
+        mpp_buffer_group_clear(mFrmGrp);
         mGeneration = generation;
         return C2_NO_MEMORY;
     }
@@ -1597,9 +1597,10 @@ c2_status_t C2RKMpiDec::commitBufferToMpp(std::shared_ptr<C2GraphicBlock> block)
         info.ptr = nullptr;
         info.hnd = nullptr;
         info.size = GetC2BlockSize();
+        info.index = bqSlot;
 
-        mpp_buffer_import_with_tag(mFrmGrp, &info,
-                                   &mppBuffer, "codec2", __FUNCTION__);
+        mpp_buffer_import_with_tag(
+                mFrmGrp, &info, &mppBuffer, "codec2", __FUNCTION__);
 
         OutBuffer *buffer = new OutBuffer;
         buffer->index = bqSlot;
@@ -1743,7 +1744,8 @@ c2_status_t C2RKMpiDec::ensureDecoderState(
                 c2_info("get surface changed, update output buffer");
                 count = mIntf->mActualOutputDelay->value - getOutBufferCountOwnByMpi();
                 i = 0;
-            } else {
+            }
+            if (outblock) {
                 commitBufferToMpp(outblock);
                 i++;
             }
@@ -1810,7 +1812,7 @@ c2_status_t C2RKMpiDec::updateScaleCfg(std::shared_ptr<C2GraphicBlock> block) {
 c2_status_t C2RKMpiDec::configFrameScaleMeta(
         MppFrame frame, std::shared_ptr<C2GraphicBlock> block) {
     if (block && block->handle()
-          && mpp_frame_has_meta(frame) && mpp_frame_get_thumbnail_en(frame)) {
+            && mpp_frame_has_meta(frame) && mpp_frame_get_thumbnail_en(frame)) {
         MppMeta meta = NULL;
         int32_t scaleYOffset = 0;
         int32_t scaleUVOffset = 0;
