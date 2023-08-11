@@ -1214,6 +1214,12 @@ outframe:
 void C2RKMpiDec::setDefaultCodecColorAspectsIfNeeded(ColorAspects &aspects) {
     typedef ColorAspects CA;
 
+    // reset unsupport other aspect
+    if (aspects.mMatrixCoeffs == CA::MatrixOther)
+        aspects.mMatrixCoeffs = CA::MatrixUnspecified;
+    if (aspects.mPrimaries == CA::PrimariesOther)
+        aspects.mPrimaries = CA::PrimariesUnspecified;
+
     static const ALookup<CA::Primaries, CA::MatrixCoeffs> sPMAspectMap = {
         {
             { CA::PrimariesUnspecified,   CA::MatrixUnspecified },
