@@ -827,7 +827,6 @@ public:
         } else if (type == MPP_VIDEO_CodingHEVC) {
             return C2RKCodecMapper::getMppH265Profile(cProfile);
         } else {
-            c2_err("unsupport coding type:%d", type);
             return 0;
         }
     }
@@ -847,7 +846,6 @@ public:
         }  else if (type == MPP_VIDEO_CodingHEVC) {
             return C2RKCodecMapper::getMppH265Level(cLevel);
         } else {
-            c2_err("unsupport coding type:%d", type);
             return 0;
         }
     }
