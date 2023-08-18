@@ -2303,7 +2303,8 @@ c2_status_t C2RKMpiEnc::getInBufferFromWork(
         /* dump input data if neccessary */
         mDump->recordInFile((void*)input->data()[0], stride, height, RAW_TYPE_RGBA);
 
-        if (mChipType == RK_CHIP_3588 || !((stride & 0xf) || (height & 0xf))) {
+        if ((mChipType == RK_CHIP_3588 && mCodingType != MPP_VIDEO_CodingVP8)
+                || !((stride & 0xf) || (height & 0xf))) {
             outBuffer->fd = fd;
             outBuffer->size = mHorStride * mVerStride * 4;
 
