@@ -1641,20 +1641,13 @@ c2_status_t C2RKMpiDec::ensureDecoderState(
 
     std::lock_guard<std::mutex> lock(mPoolMutex);
 
-    // workround for tencent-video, the application can not deal with crop
-    // correctly, so use actual dimention when fetch block, make sure that
-    // the output buffer carries all info needed.
-    // note: private grallc flag only support gralloc 4.0
-    if (mGrallocVersion == 4 && !mGraphicBufferSource
-            && format == HAL_PIXEL_FORMAT_YCrCb_NV12) {
-        if (mWidth != mHorStride) {
-            blockW = mWidth;
-            usage = C2RKMediaUtils::getStrideUsage(mWidth, mHorStride);
-        }
-        if (mHeight != mVerStride) {
-            blockH = mHeight;
-            usage |= C2RKMediaUtils::getHStrideUsage(mHeight, mVerStride);
-        }
+    // NOTE: private grallc align flag only support in gralloc 4.0.
+    if (mGrallocVersion == 4) {
+        blockW = mWidth;
+        usage = C2RKMediaUtils::getStrideUsage(mWidth, mHorStride);
+
+        blockH = mHeight;
+        usage |= C2RKMediaUtils::getHStrideUsage(mHeight, mVerStride);
     }
 
     if (mFbcCfg.mode) {
