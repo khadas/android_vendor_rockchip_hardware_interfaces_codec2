@@ -1224,18 +1224,27 @@ void C2RKMpiDec::setDefaultCodecColorAspectsIfNeeded(ColorAspects &aspects) {
         {
             { CA::PrimariesUnspecified,   CA::MatrixUnspecified },
             { CA::PrimariesBT709_5,       CA::MatrixBT709_5 },
-            { CA::PrimariesBT470_6M,      CA::MatrixBT470_6M },
             { CA::PrimariesBT601_6_625,   CA::MatrixBT601_6 },
-            { CA::PrimariesBT601_6_525,   CA::MatrixSMPTE240M },
-            { CA::PrimariesGenericFilm,   CA::MatrixBT2020 },
-            { CA::PrimariesBT2020,        CA::MatrixBT2020Constant },
+            { CA::PrimariesBT601_6_525,   CA::MatrixBT601_6 },
+            { CA::PrimariesBT2020,        CA::MatrixBT2020 },
+            { CA::PrimariesBT470_6M,      CA::MatrixBT470_6M },
         }
     };
 
-    if (aspects.mMatrixCoeffs == CA::MatrixUnspecified) {
+    if (aspects.mMatrixCoeffs == CA::MatrixUnspecified
+            && aspects.mPrimaries != CA::PrimariesUnspecified) {
         sPMAspectMap.map(aspects.mPrimaries, &aspects.mMatrixCoeffs);
-    } else if (aspects.mPrimaries == CA::PrimariesUnspecified) {
-        sPMAspectMap.map(aspects.mMatrixCoeffs, &aspects.mPrimaries);
+    } else if (aspects.mPrimaries == CA::PrimariesUnspecified
+                   && aspects.mMatrixCoeffs != CA::MatrixUnspecified) {
+        if (aspects.mMatrixCoeffs == CA::MatrixBT601_6) {
+            if ((mWidth <= 720 && mHeight <= 480) || (mHeight <= 720 && mWidth <= 480)) {
+                aspects.mPrimaries = CA::PrimariesBT601_6_525;
+            } else {
+                aspects.mPrimaries = CA::PrimariesBT601_6_625;
+            }
+        } else {
+            sPMAspectMap.map(aspects.mMatrixCoeffs, &aspects.mPrimaries);
+        }
     }
 }
 
@@ -1257,6 +1266,10 @@ void C2RKMpiDec::getVuiParams(MppFrame frame) {
         mBitstreamColorAspects = aspects;
         ColorAspects sfAspects;
         C2StreamColorAspectsInfo::input codedAspects = { 0u };
+
+        c2_info("Got vui color aspects, P(%d) T(%d) M(%d) R(%d)",
+                aspects.primaries, aspects.transfer,
+                aspects.coeffs, aspects.fullRange);
 
         ColorUtils::convertIsoColorAspectsToCodecAspects(
                 aspects.primaries, aspects.transfer, aspects.coeffs,
@@ -1280,7 +1293,7 @@ void C2RKMpiDec::getVuiParams(MppFrame frame) {
         std::vector<std::unique_ptr<C2SettingResult>> failures;
         mIntf->config({&codedAspects}, C2_MAY_BLOCK, &failures);
 
-        c2_info("Got color aspects (R:%d(%s), P:%d(%s), M:%d(%s), T:%d(%s))",
+        c2_info("set colorAspects (R:%d(%s), P:%d(%s), M:%d(%s), T:%d(%s))",
                 sfAspects.mRange, asString(sfAspects.mRange),
                 sfAspects.mPrimaries, asString(sfAspects.mPrimaries),
                 sfAspects.mMatrixCoeffs, asString(sfAspects.mMatrixCoeffs),
