@@ -64,7 +64,7 @@ static const C2GrallocInfo GrallocInfos[] = {
     },
     {
         "rk3288",
-        3,
+        4,
     },
     {
         "rk3228a",
@@ -112,7 +112,7 @@ static const C2GrallocInfo GrallocInfos[] = {
     },
     {
         "px30",
-        3,
+        4,
     },
     {
         "rk3566",
@@ -124,6 +124,10 @@ static const C2GrallocInfo GrallocInfos[] = {
     },
     {
         "rk3588",
+        4,
+    },
+    {
+        "rk3562",
         4,
     },
     {
