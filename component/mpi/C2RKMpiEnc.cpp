@@ -816,8 +816,6 @@ public:
         uint32_t cProfile = mProfileLevel->profile;
         uint32_t mProfile = mMlvecParams->profileLevel->profile;
 
-        c2_trace("cProfile %d mProfile %d", cProfile, mProfile);
-
         if (type == MPP_VIDEO_CodingAVC) {
             if (mProfile > 0) {
                 return C2RKCodecMapper::getMppH264Profile(mProfile, false);
@@ -834,8 +832,6 @@ public:
     uint32_t getLevel_l(MppCodingType type) const {
         uint32_t cLevel = mProfileLevel->level;
         uint32_t mLevel = mMlvecParams->profileLevel->level;
-
-        c2_trace("cLevel %d mLevel %d", cLevel, mLevel);
 
         if (type == MPP_VIDEO_CodingAVC) {
             if (mLevel) {
@@ -854,10 +850,7 @@ public:
         int32_t cMode = mBitrateMode->value;
         int32_t mMode = mMlvecParams->rateControl->value;
 
-        c2_trace("cMode %d mMode %d", cMode, mMode);
-
         if (mMode >= 0) {
-            c2_trace("get mlvec bitrate mode setup, value %d", mMode);
             return C2RKCodecMapper::getMppBitrateMode(mMode, false);
         } else {
             return C2RKCodecMapper::getMppBitrateMode(cMode, true);
