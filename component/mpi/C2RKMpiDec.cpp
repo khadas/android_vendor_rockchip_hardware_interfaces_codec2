@@ -1513,7 +1513,7 @@ REDO:
         }
 
         /* dump output data if neccessary */
-        if (C2RKDump::getDumpFlag() & C2_DUMP_RECORD_OUT) {
+        if (C2RKDump::getDumpFlag() & C2_DUMP_RECORD_DEC_OUT) {
             void *data = mpp_buffer_get_ptr(mppBuffer);
             mDump->recordOutFile(data, hstride, vstride, RAW_TYPE_YUV420SP);
         }

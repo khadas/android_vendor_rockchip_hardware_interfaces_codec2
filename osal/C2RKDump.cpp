@@ -79,7 +79,8 @@ C2RKDump::~C2RKDump() {
 void C2RKDump::initDump(uint32_t width, uint32_t height, bool isEncoder) {
     char fileName[128];
 
-    if (mFlag & C2_DUMP_RECORD_IN) {
+    if (((mFlag & C2_DUMP_RECORD_ENC_IN) && isEncoder) ||
+        ((mFlag & C2_DUMP_RECORD_DEC_IN) && !isEncoder)) {
         memset(fileName, 0, 128);
 
         sprintf(fileName, "%s%s_in_%dx%d_%ld.bin", C2_RECORD_DIR,
@@ -92,7 +93,8 @@ void C2RKDump::initDump(uint32_t width, uint32_t height, bool isEncoder) {
         }
     }
 
-    if (mFlag & C2_DUMP_RECORD_OUT) {
+    if (((mFlag & C2_DUMP_RECORD_ENC_OUT) && isEncoder) ||
+        ((mFlag & C2_DUMP_RECORD_DEC_OUT) && !isEncoder)) {
         memset(fileName, 0, 128);
 
         sprintf(fileName, "%s%s_out_%dx%d_%ld.bin", C2_RECORD_DIR,

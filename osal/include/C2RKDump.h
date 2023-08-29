@@ -26,8 +26,10 @@
 #define C2_DUMP_FPS_SHOW_INPUT              (0x00000004)
 #define C2_DUMP_FPS_SHOW_OUTPUT             (0x00000008)
 
-#define C2_DUMP_RECORD_IN                   (0x00000010)
-#define C2_DUMP_RECORD_OUT                  (0x00000020)
+#define C2_DUMP_RECORD_ENC_IN               (0x00000010)
+#define C2_DUMP_RECORD_ENC_OUT              (0x00000020)
+#define C2_DUMP_RECORD_DEC_IN               (0x00000040)
+#define C2_DUMP_RECORD_DEC_OUT              (0x00000080)
 
 
 enum C2RecRawType {
