@@ -35,7 +35,7 @@ extern std::atomic<int32_t> sEncConcurrentInstances;
 #define AVC_MAX_OUTPUT_DELAY           16
 #define HEVC_MIN_OUTPUT_DELAY           6
 #define HEVC_MAX_OUTPUT_DELAY          16
-#define VP9_MIN_OUTPUT_DELAY            4
+#define VP9_MIN_OUTPUT_DELAY            5
 #define VP9_MAX_OUTPUT_DELAY            8
 #define AV1_OUTPUT_DELAY               10
 #define IEP_MAX_OUTPUT_DELAY            5

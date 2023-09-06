@@ -896,7 +896,7 @@ bool C2RKMpiDec::checkPreferFbcOutput(const std::unique_ptr<C2Work> &work) {
         }
     }
 
-    if (mWidth * mHeight > 2304 * 1080) {
+    if (mWidth * mHeight > 2304 * 1080 ||  mCodingType == MPP_VIDEO_CodingVP9 || mCodingType == MPP_VIDEO_CodingHEVC) {
         return true;
     }
 
@@ -1357,7 +1357,7 @@ c2_status_t C2RKMpiDec::sendpacket(uint8_t *data, size_t size, uint64_t pts, uin
     }
 
     MPP_RET err = MPP_OK;
-    uint32_t kMaxRetryNum = 20;
+    uint32_t kMaxRetryNum = 3;
     uint32_t retry = 0;
 
     while (true) {
@@ -1375,7 +1375,7 @@ c2_status_t C2RKMpiDec::sendpacket(uint8_t *data, size_t size, uint64_t pts, uin
             ret = C2_CORRUPTED;
             break;
         }
-        usleep(5 * 1000);
+        usleep(4 * 1000);
     }
 
     mpp_packet_deinit(&packet);
