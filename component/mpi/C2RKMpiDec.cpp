@@ -1324,9 +1324,15 @@ c2_status_t C2RKMpiDec::copyOutputBuffer(MppBuffer srcBuffer, MppBuffer dstBuffe
 
     /* try CPU copy if get rga process fail */
     uint8_t *srcPtr = (uint8_t*)mpp_buffer_get_ptr(srcBuffer);
-    C2GraphicView wView = mOutBlock->map().get();
-    uint8_t *dstPtr = wView.data()[C2PlanarLayout::PLANE_Y];
-
+    uint8_t *dstPtr = nullptr
+    if (dstBuffer != nullptr) {
+        // store outdated decode output
+        dstPtr = (uint8_t*)mpp_buffer_get_ptr(dstBuffer);
+    } else {
+        // copy mppBuffer to output mOutBlock
+        C2GraphicView wView = mOutBlock->map().get();
+        dstPtr = wView.data()[C2PlanarLayout::PLANE_Y];
+    }
     memcpy(dstPtr, srcPtr, mHorStride * mVerStride * 3 / 2);
 
     return C2_OK;
