@@ -1324,7 +1324,7 @@ c2_status_t C2RKMpiDec::copyOutputBuffer(MppBuffer srcBuffer, MppBuffer dstBuffe
 
     /* try CPU copy if get rga process fail */
     uint8_t *srcPtr = (uint8_t*)mpp_buffer_get_ptr(srcBuffer);
-    uint8_t *dstPtr = nullptr
+    uint8_t *dstPtr = nullptr;
     if (dstBuffer != nullptr) {
         // store outdated decode output
         dstPtr = (uint8_t*)mpp_buffer_get_ptr(dstBuffer);
